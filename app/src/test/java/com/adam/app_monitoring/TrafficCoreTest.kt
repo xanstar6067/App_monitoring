@@ -8,6 +8,7 @@ import com.adam.app_monitoring.core.model.TrafficSnapshot
 import com.adam.app_monitoring.core.model.TrafficUsage
 import com.adam.app_monitoring.core.util.ByteFormatter
 import com.adam.app_monitoring.core.util.ByteUnitPreference
+import com.adam.app_monitoring.core.util.ChartBuckets
 import com.adam.app_monitoring.core.util.TimeRanges
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -49,6 +50,59 @@ class TrafficCoreTest {
             .toInstant()
             .toEpochMilli()
         assertEquals(expectedStart, range.startMillis)
+    }
+
+    @Test
+    fun chartBucketCrossingMidnightIsSplitBetweenDays() {
+        val zone = ZoneId.of("Europe/Minsk")
+        val bucketStart = LocalDateTime.of(2026, 6, 9, 23, 30)
+            .atZone(zone).toInstant().toEpochMilli()
+        val bucketEnd = LocalDateTime.of(2026, 6, 10, 0, 30)
+            .atZone(zone).toInstant().toEpochMilli()
+        val rangeStart = LocalDateTime.of(2026, 6, 1, 0, 0)
+            .atZone(zone).toInstant().toEpochMilli()
+        val rangeEnd = LocalDateTime.of(2026, 6, 10, 14, 0)
+            .atZone(zone).toInstant().toEpochMilli()
+
+        val result = ChartBuckets.distribute(
+            bucketStartMillis = bucketStart,
+            bucketEndMillis = bucketEnd,
+            bytes = 1_000,
+            rangeStartMillis = rangeStart,
+            rangeEndMillis = rangeEnd,
+            period = TrafficPeriod.MONTH,
+            zoneId = zone
+        )
+
+        val june9 = LocalDateTime.of(2026, 6, 9, 0, 0)
+            .atZone(zone).toInstant().toEpochMilli()
+        val june10 = LocalDateTime.of(2026, 6, 10, 0, 0)
+            .atZone(zone).toInstant().toEpochMilli()
+        assertEquals(500L, result[june9])
+        assertEquals(500L, result[june10])
+    }
+
+    @Test
+    fun chartBucketIsClippedToRequestedRange() {
+        val zone = ZoneId.of("UTC")
+        val bucketStart = LocalDateTime.of(2026, 6, 9, 23, 0)
+            .atZone(zone).toInstant().toEpochMilli()
+        val bucketEnd = LocalDateTime.of(2026, 6, 10, 1, 0)
+            .atZone(zone).toInstant().toEpochMilli()
+        val rangeStart = LocalDateTime.of(2026, 6, 10, 0, 0)
+            .atZone(zone).toInstant().toEpochMilli()
+
+        val result = ChartBuckets.distribute(
+            bucketStartMillis = bucketStart,
+            bucketEndMillis = bucketEnd,
+            bytes = 600,
+            rangeStartMillis = rangeStart,
+            rangeEndMillis = bucketEnd,
+            period = TrafficPeriod.TODAY,
+            zoneId = zone
+        )
+
+        assertEquals(mapOf(rangeStart to 600L), result)
     }
 
     @Test

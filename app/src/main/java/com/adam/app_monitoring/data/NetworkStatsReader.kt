@@ -9,6 +9,7 @@ import android.net.ConnectivityManager
 import com.adam.app_monitoring.core.model.ChartPoint
 import com.adam.app_monitoring.core.model.TrafficPeriod
 import com.adam.app_monitoring.core.model.TrafficUsage
+import com.adam.app_monitoring.core.util.ChartBuckets
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.CancellationException
@@ -150,9 +151,17 @@ class NetworkStatsReader(context: Context) {
             var count = 0
             while (stats.hasNextBucket()) {
                 stats.getNextBucket(bucket)
-                val key = normalizeBucket(bucket.startTimeStamp, period)
                 val bytes = bucket.rxBytes.safeBytes() + bucket.txBytes.safeBytes()
-                result[key] = (result[key] ?: 0) + bytes
+                ChartBuckets.distribute(
+                    bucketStartMillis = bucket.startTimeStamp,
+                    bucketEndMillis = bucket.endTimeStamp,
+                    bytes = bytes,
+                    rangeStartMillis = startMillis,
+                    rangeEndMillis = endMillis,
+                    period = period
+                ).forEach { (key, allocatedBytes) ->
+                    result[key] = (result[key] ?: 0) + allocatedBytes
+                }
                 count++
                 if (count % CANCELLATION_CHECK_INTERVAL == 0) {
                     currentCoroutineContext().ensureActive()
@@ -163,15 +172,6 @@ class NetworkStatsReader(context: Context) {
             }
         }
         return result
-    }
-
-    private fun normalizeBucket(timestamp: Long, period: TrafficPeriod): Long {
-        val zoned = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault())
-        val normalized = when (period) {
-            TrafficPeriod.TODAY -> zoned.withMinute(0).withSecond(0).withNano(0)
-            TrafficPeriod.MONTH -> zoned.toLocalDate().atStartOfDay(ZoneId.systemDefault())
-        }
-        return normalized.toInstant().toEpochMilli()
     }
 
     private fun chartLabel(timestamp: Long, period: TrafficPeriod): String {
