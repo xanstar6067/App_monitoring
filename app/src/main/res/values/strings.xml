@@ -1,8 +1,9 @@
 <resources>
     <string name="app_name">Трафик приложений</string>
     <string name="widget_name">Трафик сегодня</string>
-    <string name="widget_description">Трафик за сегодня и три самых активных приложения</string>
+    <string name="widget_description">Трафик за сегодня, остаток мобильных данных и три самых активных приложения</string>
     <string name="widget_today">СЕГОДНЯ</string>
+    <string name="widget_remaining">ОСТАЛОСЬ</string>
     <string name="widget_no_data">Нет данных</string>
     <string name="widget_loading">Обновление</string>
     <string name="widget_refresh">Обновить статистику</string>

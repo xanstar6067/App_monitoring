@@ -33,6 +33,11 @@ data class UserSettings(
     val refreshAfterBoot: Boolean = true,
     val trafficLimitNotificationsEnabled: Boolean = false,
     val monthlyTrafficLimitMb: Int = 10_240,
+    val configuredTrafficRemainingMb: Int = 10_240,
+    val hasConfiguredTrafficRemaining: Boolean = false,
+    val trafficRemainingBaselineBytes: Long = 0,
+    val trafficRemainingPeriodStartMillis: Long = 0,
+    val cachedTrafficRemainingBytes: Long = -1,
     val trafficWarningPercent: Int = 80,
     val billingCycleStartDay: Int = 1,
     val theme: ThemePreference = ThemePreference.SYSTEM,
@@ -60,6 +65,13 @@ class SettingsStore(context: Context) {
         trafficLimitNotificationsEnabled = prefs.getBoolean(KEY_LIMIT_NOTIFICATIONS, false),
         monthlyTrafficLimitMb = prefs.getInt(KEY_MONTHLY_LIMIT_MB, 10_240)
             .coerceIn(MIN_LIMIT_MB, MAX_LIMIT_MB),
+        configuredTrafficRemainingMb = prefs.getInt(KEY_CONFIGURED_REMAINING_MB, 10_240)
+            .coerceIn(MIN_REMAINING_MB, MAX_LIMIT_MB),
+        hasConfiguredTrafficRemaining = prefs.getBoolean(KEY_HAS_CONFIGURED_REMAINING, false),
+        trafficRemainingBaselineBytes = prefs.getLong(KEY_REMAINING_BASELINE_BYTES, 0)
+            .coerceAtLeast(0),
+        trafficRemainingPeriodStartMillis = prefs.getLong(KEY_REMAINING_PERIOD_START, 0),
+        cachedTrafficRemainingBytes = prefs.getLong(KEY_CACHED_REMAINING_BYTES, -1),
         trafficWarningPercent = prefs.getInt(KEY_WARNING_PERCENT, 80).coerceIn(1, 100),
         billingCycleStartDay = prefs.getInt(KEY_BILLING_DAY, 1).coerceIn(1, 31),
         theme = enumValueOrDefault(prefs.getString(KEY_THEME, null), ThemePreference.SYSTEM),
@@ -81,6 +93,25 @@ class SettingsStore(context: Context) {
                 KEY_MONTHLY_LIMIT_MB,
                 settings.monthlyTrafficLimitMb.coerceIn(MIN_LIMIT_MB, MAX_LIMIT_MB)
             )
+            .putInt(
+                KEY_CONFIGURED_REMAINING_MB,
+                settings.configuredTrafficRemainingMb.coerceIn(
+                    MIN_REMAINING_MB,
+                    settings.monthlyTrafficLimitMb
+                )
+            )
+            .putBoolean(
+                KEY_HAS_CONFIGURED_REMAINING,
+                settings.hasConfiguredTrafficRemaining
+            )
+            .putLong(
+                KEY_REMAINING_BASELINE_BYTES,
+                settings.trafficRemainingBaselineBytes.coerceAtLeast(0)
+            )
+            .putLong(
+                KEY_REMAINING_PERIOD_START,
+                settings.trafficRemainingPeriodStartMillis
+            )
             .putInt(KEY_WARNING_PERCENT, settings.trafficWarningPercent.coerceIn(1, 100))
             .putInt(KEY_BILLING_DAY, settings.billingCycleStartDay.coerceIn(1, 31))
             .putString(KEY_THEME, settings.theme.name)
@@ -88,6 +119,27 @@ class SettingsStore(context: Context) {
             .putBoolean(KEY_SHOW_PACKAGE, settings.showPackageName)
             .putBoolean(KEY_SHOW_SYSTEM, settings.showSystemApps)
             .putBoolean(KEY_SHOW_ZERO, settings.showAppsWithoutTraffic)
+            .apply()
+    }
+
+    fun configureTrafficRemaining(
+        remainingMb: Int,
+        baselineBytes: Long,
+        periodStartMillis: Long,
+        cachedRemainingBytes: Long
+    ) {
+        prefs.edit()
+            .putInt(KEY_CONFIGURED_REMAINING_MB, remainingMb.coerceAtLeast(0))
+            .putBoolean(KEY_HAS_CONFIGURED_REMAINING, true)
+            .putLong(KEY_REMAINING_BASELINE_BYTES, baselineBytes.coerceAtLeast(0))
+            .putLong(KEY_REMAINING_PERIOD_START, periodStartMillis)
+            .putLong(KEY_CACHED_REMAINING_BYTES, cachedRemainingBytes.coerceAtLeast(0))
+            .apply()
+    }
+
+    fun cacheTrafficRemaining(remainingBytes: Long) {
+        prefs.edit()
+            .putLong(KEY_CACHED_REMAINING_BYTES, remainingBytes.coerceAtLeast(0))
             .apply()
     }
 
@@ -161,6 +213,11 @@ class SettingsStore(context: Context) {
         const val KEY_REFRESH_AFTER_BOOT = "refresh_after_boot"
         const val KEY_LIMIT_NOTIFICATIONS = "limit_notifications"
         const val KEY_MONTHLY_LIMIT_MB = "monthly_limit_mb"
+        const val KEY_CONFIGURED_REMAINING_MB = "configured_remaining_mb"
+        const val KEY_HAS_CONFIGURED_REMAINING = "has_configured_remaining"
+        const val KEY_REMAINING_BASELINE_BYTES = "remaining_baseline_bytes"
+        const val KEY_REMAINING_PERIOD_START = "remaining_period_start"
+        const val KEY_CACHED_REMAINING_BYTES = "cached_remaining_bytes"
         const val KEY_WARNING_PERCENT = "warning_percent"
         const val KEY_BILLING_DAY = "billing_day"
         const val KEY_THEME = "theme"
@@ -176,6 +233,7 @@ class SettingsStore(context: Context) {
         private const val KEY_LAST_BOOT_RECEIVED = "last_boot_received"
         const val KEY_LAST_BOOT_REFRESH = "last_boot_refresh"
         const val MIN_LIMIT_MB = 1
+        const val MIN_REMAINING_MB = 0
         const val MAX_LIMIT_MB = 100_000_000
     }
 }

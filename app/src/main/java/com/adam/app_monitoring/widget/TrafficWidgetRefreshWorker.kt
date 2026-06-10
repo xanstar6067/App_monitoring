@@ -5,6 +5,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.adam.app_monitoring.core.model.TrafficPeriod
 import com.adam.app_monitoring.data.ServiceLocator
+import com.adam.app_monitoring.data.TrafficBalanceStore
 import kotlinx.coroutines.CancellationException
 
 class TrafficWidgetRefreshWorker(
@@ -13,9 +14,11 @@ class TrafficWidgetRefreshWorker(
 ) : CoroutineWorker(appContext, workerParams) {
     override suspend fun doWork(): Result {
         return try {
-            ServiceLocator.from(applicationContext).repository.refreshSelected(
+            val services = ServiceLocator.from(applicationContext)
+            services.repository.refreshSelected(
                 period = TrafficPeriod.TODAY
             )
+            TrafficBalanceStore.refresh(services)
             TrafficWidgetProvider.updateAll(applicationContext)
             Result.success()
         } catch (cancellation: CancellationException) {

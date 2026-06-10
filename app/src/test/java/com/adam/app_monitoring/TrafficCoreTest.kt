@@ -11,6 +11,7 @@ import com.adam.app_monitoring.core.util.ByteFormatter
 import com.adam.app_monitoring.core.util.ByteUnitPreference
 import com.adam.app_monitoring.core.util.ChartBuckets
 import com.adam.app_monitoring.core.util.TimeRanges
+import com.adam.app_monitoring.core.util.TrafficLimitBalance
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -211,6 +212,40 @@ class TrafficCoreTest {
         assertEquals(100, usage.bytesFor(NetworkMode.ALL))
         assertEquals(40, usage.rxBytes)
         assertEquals(60, usage.txBytes)
+    }
+
+    @Test
+    fun configuredTrafficBalanceSubtractsOnlyNewMobileUsage() {
+        val mb = TrafficLimitBalance.BYTES_PER_MB
+
+        val remaining = TrafficLimitBalance.remainingBytes(
+            limitMb = 10_000,
+            usedBytes = 4_500 * mb,
+            periodStartMillis = 100,
+            configuredRemainingMb = 6_000,
+            configuredBaselineBytes = 4_000 * mb,
+            configuredPeriodStartMillis = 100,
+            hasConfiguredRemaining = true
+        )
+
+        assertEquals(5_500 * mb, remaining)
+    }
+
+    @Test
+    fun configuredTrafficBalanceResetsForNewBillingCycle() {
+        val mb = TrafficLimitBalance.BYTES_PER_MB
+
+        val remaining = TrafficLimitBalance.remainingBytes(
+            limitMb = 10_000,
+            usedBytes = 700 * mb,
+            periodStartMillis = 200,
+            configuredRemainingMb = 2_000,
+            configuredBaselineBytes = 8_000 * mb,
+            configuredPeriodStartMillis = 100,
+            hasConfiguredRemaining = true
+        )
+
+        assertEquals(9_300 * mb, remaining)
     }
 
     @Test

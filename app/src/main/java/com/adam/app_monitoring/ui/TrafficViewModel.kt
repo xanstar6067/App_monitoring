@@ -19,6 +19,7 @@ import com.adam.app_monitoring.data.UsageAccessMissingException
 import com.adam.app_monitoring.data.UserSettings
 import com.adam.app_monitoring.data.NetworkStatus
 import com.adam.app_monitoring.data.NetworkStatusMonitor
+import com.adam.app_monitoring.data.TrafficBalanceStore
 import com.adam.app_monitoring.widget.TrafficWidgetProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +53,7 @@ data class TrafficUiState(
     val intervalApps: List<AppTraffic>? = null,
     val intervalLoading: Boolean = false,
     val loading: Boolean = false,
+    val trafficRemainingBytes: Long? = null,
     val networkStatus: NetworkStatus = NetworkStatus(),
     val error: String? = null
 )
@@ -64,6 +66,9 @@ class TrafficViewModel(
         TrafficUiState(
             permissions = services.permissions.state(),
             settings = services.settings.read(),
+            trafficRemainingBytes = services.settings.read()
+                .cachedTrafficRemainingBytes
+                .takeIf { it >= 0 },
             snapshot = services.repository.loadCached(TrafficPeriod.TODAY)
                 ?: TrafficSnapshot.empty(TrafficPeriod.TODAY)
         )
@@ -82,6 +87,7 @@ class TrafficViewModel(
             }
         }
         maybeRefresh()
+        refreshTrafficBalance()
     }
 
     fun onResume() {
@@ -223,7 +229,13 @@ class TrafficViewModel(
                     forceAppScan = forceAppScan
                 )
                 try {
-                    TrafficLimitNotifier.checkAndNotify(appContext, services)
+                    val remainingBytes = TrafficBalanceStore.refresh(services)
+                    TrafficLimitNotifier.checkAndNotify(
+                        appContext,
+                        services,
+                        remainingBytes
+                    )
+                    _state.update { it.copy(trafficRemainingBytes = remainingBytes) }
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (_: Exception) {
@@ -271,6 +283,40 @@ class TrafficViewModel(
         if (previous.widgetUpdateInterval != updated.widgetUpdateInterval) {
             TrafficWidgetProvider.reschedulePeriodicRefreshIfActive(appContext)
         }
+        if (previous.monthlyTrafficLimitMb != updated.monthlyTrafficLimitMb ||
+            previous.billingCycleStartDay != updated.billingCycleStartDay
+        ) {
+            refreshTrafficBalance()
+        }
+        TrafficWidgetProvider.updateAll(appContext)
+    }
+
+    fun configureTrafficRemaining(remainingMb: Int) {
+        viewModelScope.launch {
+            try {
+                val remainingBytes = TrafficBalanceStore.configure(services, remainingMb)
+                val settings = services.settings.read()
+                _state.update {
+                    it.copy(
+                        settings = settings,
+                        trafficRemainingBytes = remainingBytes,
+                        error = null
+                    )
+                }
+                TrafficWidgetProvider.updateAll(appContext)
+            } catch (_: UsageAccessMissingException) {
+                _state.update {
+                    it.copy(
+                        permissions = services.permissions.state(),
+                        error = "Разрешите доступ к статистике, чтобы задать остаток"
+                    )
+                }
+            } catch (error: Exception) {
+                _state.update {
+                    it.copy(error = error.message ?: "Не удалось задать остаток")
+                }
+            }
+        }
     }
 
     fun clearCache() {
@@ -306,6 +352,26 @@ class TrafficViewModel(
         val snapshot = _state.value.snapshot
         val stale = System.currentTimeMillis() - snapshot.calculatedAt >= CACHE_FRESH_MS
         if (_state.value.permissions.usageAccessGranted && stale) refresh()
+    }
+
+    private fun refreshTrafficBalance() {
+        if (!services.permissions.hasUsageAccess()) return
+        viewModelScope.launch {
+            try {
+                val remainingBytes = TrafficBalanceStore.refresh(services)
+                _state.update {
+                    it.copy(
+                        settings = services.settings.read(),
+                        trafficRemainingBytes = remainingBytes
+                    )
+                }
+                TrafficWidgetProvider.updateAll(appContext)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                // The traffic screen remains usable when a balance refresh is unavailable.
+            }
+        }
     }
 
     private fun updateNetworkMonitoring() {

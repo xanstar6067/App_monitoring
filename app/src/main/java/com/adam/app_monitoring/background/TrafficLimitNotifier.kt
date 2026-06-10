@@ -12,6 +12,8 @@ import android.os.Build
 import com.adam.app_monitoring.MainActivity
 import com.adam.app_monitoring.R
 import com.adam.app_monitoring.core.util.TimeRanges
+import com.adam.app_monitoring.core.util.TrafficLimitBalance
+import com.adam.app_monitoring.data.TrafficBalanceStore
 import com.adam.app_monitoring.data.Services
 import java.time.Instant
 import java.time.ZoneId
@@ -20,9 +22,11 @@ import kotlin.math.roundToInt
 object TrafficLimitNotifier {
     private const val CHANNEL_ID = "traffic_limit_alerts"
     private const val NOTIFICATION_ID = 1001
-    private const val BYTES_PER_MB = 1024L * 1024L
-
-    suspend fun checkAndNotify(context: Context, services: Services) {
+    suspend fun checkAndNotify(
+        context: Context,
+        services: Services,
+        refreshedRemainingBytes: Long? = null
+    ) {
         val settings = services.settings.read()
         if (!settings.trafficLimitNotificationsEnabled ||
             !services.permissions.hasUsageAccess() ||
@@ -38,15 +42,15 @@ object TrafficLimitNotifier {
             .toString()
         if (services.settings.lastLimitNotificationPeriod() == periodKey) return
 
-        val usedBytes = services.repository
-            .loadUsageForRange(range.startMillis, range.endMillis)
-            .mobileBytes
-        val limitBytes = settings.monthlyTrafficLimitMb.toLong() * BYTES_PER_MB
+        val remainingBytes = refreshedRemainingBytes ?: TrafficBalanceStore.refresh(services)
+        val limitBytes = settings.monthlyTrafficLimitMb.toLong() *
+            TrafficLimitBalance.BYTES_PER_MB
+        val usedBytes = (limitBytes - remainingBytes).coerceAtLeast(0)
         val warningBytes = limitBytes * settings.trafficWarningPercent / 100
         if (usedBytes < warningBytes) return
 
         createChannel(context)
-        val usedMb = usedBytes.toDouble() / BYTES_PER_MB
+        val usedMb = usedBytes.toDouble() / TrafficLimitBalance.BYTES_PER_MB
         val usedPercent = (usedBytes.toDouble() * 100 / limitBytes).roundToInt()
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP

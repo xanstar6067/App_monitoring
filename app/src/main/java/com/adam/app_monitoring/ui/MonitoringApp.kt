@@ -266,6 +266,7 @@ private fun OverviewScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
                 points = state.snapshot.chart,
                 mode = state.networkMode,
                 total = state.snapshot.totalUsage.bytesFor(state.networkMode),
+                trafficRemainingBytes = state.trafficRemainingBytes,
                 units = state.settings.units,
                 selectedPoint = state.selectedChartPoint,
                 onPointSelected = viewModel::selectChartPoint,
@@ -581,6 +582,7 @@ private fun ChartCard(
     points: List<ChartPoint>,
     mode: NetworkMode,
     total: Long,
+    trafficRemainingBytes: Long?,
     units: com.adam.app_monitoring.core.util.ByteUnitPreference,
     selectedPoint: ChartPoint?,
     onPointSelected: (ChartPoint) -> Unit,
@@ -624,6 +626,15 @@ private fun ChartCard(
                 "Всего за период: ${ByteFormatter.format(total, units)}",
                 fontWeight = FontWeight.SemiBold
             )
+            if (trafficRemainingBytes != null) {
+                Text(
+                    "Остаток мобильного трафика: ${
+                        ByteFormatter.format(trafficRemainingBytes, units)
+                    }",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }
@@ -1370,6 +1381,14 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
             )
         }
         item {
+            TrafficRemainingSetting(
+                value = settings.configuredTrafficRemainingMb
+                    .coerceAtMost(settings.monthlyTrafficLimitMb),
+                limitMb = settings.monthlyTrafficLimitMb,
+                onApply = viewModel::configureTrafficRemaining
+            )
+        }
+        item {
             NumericSettingField(
                 title = "Предупредить при",
                 value = settings.trafficWarningPercent,
@@ -1393,7 +1412,8 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
         }
         item {
             Text(
-                "Учитывается только мобильный трафик. Для коротких месяцев день 29–31 переносится на последний день месяца.",
+                "Остаток уменьшается только на мобильные данные после момента, когда он был задан. " +
+                    "Для коротких месяцев день 29–31 переносится на последний день месяца.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1534,6 +1554,46 @@ private fun ToggleSetting(
                 }
             }
             Switch(checked = checked, onCheckedChange = onCheckedChange)
+        }
+    }
+}
+
+@Composable
+private fun TrafficRemainingSetting(
+    value: Int,
+    limitMb: Int,
+    onApply: (Int) -> Unit
+) {
+    var text by remember(value, limitMb) { mutableStateOf(value.toString()) }
+    val parsed = text.toIntOrNull()
+    val invalid = parsed == null || parsed !in SettingsStore.MIN_REMAINING_MB..limitMb
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { raw -> text = raw.filter(Char::isDigit).take(9) },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Задать остаток") },
+                suffix = { Text("МБ") },
+                supportingText = if (invalid) {
+                    { Text("Допустимо: 0–$limitMb") }
+                } else {
+                    { Text("От этой величины будет вычитаться дальнейший расход") }
+                },
+                isError = invalid,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
+            Button(
+                enabled = !invalid,
+                onClick = { parsed?.let(onApply) }
+            ) {
+                Text("Применить остаток")
+            }
         }
     }
 }

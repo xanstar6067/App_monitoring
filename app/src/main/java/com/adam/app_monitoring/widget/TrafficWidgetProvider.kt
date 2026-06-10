@@ -122,12 +122,18 @@ class TrafficWidgetProvider : AppWidgetProvider() {
                 .sortedByDescending { it.todayUsage.totalBytes }
                 .take(3)
             val totalBytes = snapshot?.todayTotalUsage?.totalBytes ?: 0
+            val remainingBytes = ServiceLocator.from(context)
+                .settings
+                .read()
+                .cachedTrafficRemainingBytes
+                .takeIf { it >= 0 }
             ids.forEach { id ->
                 manager.updateAppWidget(
                     id,
                     buildViews(
                         context = context,
                         totalBytes = totalBytes,
+                        remainingBytes = remainingBytes,
                         topApps = topApps,
                         hasData = snapshot != null
                     )
@@ -138,6 +144,7 @@ class TrafficWidgetProvider : AppWidgetProvider() {
         private fun buildViews(
             context: Context,
             totalBytes: Long = 0,
+            remainingBytes: Long? = null,
             topApps: List<AppTraffic> = emptyList(),
             hasData: Boolean = false,
             loading: Boolean = false
@@ -150,6 +157,11 @@ class TrafficWidgetProvider : AppWidgetProvider() {
                     hasData -> ByteFormatter.compact(totalBytes)
                     else -> context.getString(R.string.widget_no_data)
                 }
+            )
+            views.setTextViewText(
+                R.id.widget_remaining,
+                remainingBytes?.let(ByteFormatter::compact)
+                    ?: context.getString(R.string.widget_no_data)
             )
 
             val slots = listOf(

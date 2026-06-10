@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.adam.app_monitoring.data.ServiceLocator
+import com.adam.app_monitoring.data.TrafficBalanceStore
 import com.adam.app_monitoring.widget.TrafficWidgetProvider
 import kotlinx.coroutines.CancellationException
 
@@ -20,9 +21,14 @@ class TrafficRefreshWorker(
 
         return try {
             services.repository.refreshBackground(fromBoot = fromBoot)
+            val remainingBytes = TrafficBalanceStore.refresh(services)
             TrafficWidgetProvider.updateAll(applicationContext)
             try {
-                TrafficLimitNotifier.checkAndNotify(applicationContext, services)
+                TrafficLimitNotifier.checkAndNotify(
+                    applicationContext,
+                    services,
+                    remainingBytes
+                )
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Exception) {
