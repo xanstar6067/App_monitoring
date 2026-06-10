@@ -143,6 +143,27 @@ class TrafficCoreTest {
     }
 
     @Test
+    fun monthlyChartUsesExactTodayTotalForLatestPoint() {
+        val points = listOf(
+            ChartPoint(1, "9", wifiBytes = 2_000, mobileBytes = 200),
+            ChartPoint(2, "10", wifiBytes = 725, mobileBytes = 48)
+        )
+
+        val result = ChartBuckets.reconcileLatestPoint(
+            points = points,
+            wifiTotalBytes = 3_200,
+            mobileTotalBytes = 300,
+            latestWifiBytes = 962,
+            latestMobileBytes = 49
+        )
+
+        assertEquals(962L, result.last().wifiBytes)
+        assertEquals(49L, result.last().mobileBytes)
+        assertEquals(3_200L, result.sumOf { it.wifiBytes })
+        assertEquals(300L, result.sumOf { it.mobileBytes })
+    }
+
+    @Test
     fun billingCycleUsesConfiguredDay() {
         val zone = ZoneId.of("UTC")
         val now = LocalDateTime.of(2026, 6, 10, 14, 35)

@@ -8,6 +8,7 @@ import com.adam.app_monitoring.core.model.TrafficSnapshot
 import com.adam.app_monitoring.core.model.TrafficUsage
 import com.adam.app_monitoring.core.util.TimeRange
 import com.adam.app_monitoring.core.util.TimeRanges
+import com.adam.app_monitoring.core.util.ChartBuckets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -72,11 +73,27 @@ class TrafficRepository(
                         period = TrafficPeriod.MONTH,
                         includeChart = true
                     )
+                    val todayUsage = todayStats.byUid.values.fold(TrafficUsage()) {
+                            total,
+                            usage ->
+                        total + usage
+                    }
+                    val monthUsage = monthStats.byUid.values.fold(TrafficUsage()) {
+                            total,
+                            usage ->
+                        total + usage
+                    }
                     database.savePeriod(
                         periodStart = monthRange.startMillis,
                         periodEnd = monthRange.endMillis,
                         rows = buildRows(apps, monthStats.byUid, now),
-                        chart = monthStats.chart,
+                        chart = ChartBuckets.reconcileLatestPoint(
+                            points = monthStats.chart,
+                            wifiTotalBytes = monthUsage.wifiBytes,
+                            mobileTotalBytes = monthUsage.mobileBytes,
+                            latestWifiBytes = todayUsage.wifiBytes,
+                            latestMobileBytes = todayUsage.mobileBytes
+                        ),
                         calculatedAt = now
                     )
                 }

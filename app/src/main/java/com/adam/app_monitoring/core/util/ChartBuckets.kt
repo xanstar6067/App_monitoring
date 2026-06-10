@@ -23,6 +23,27 @@ object ChartBuckets {
         }
     }
 
+    fun reconcileLatestPoint(
+        points: List<ChartPoint>,
+        wifiTotalBytes: Long,
+        mobileTotalBytes: Long,
+        latestWifiBytes: Long,
+        latestMobileBytes: Long
+    ): List<ChartPoint> {
+        if (points.isEmpty()) return points
+
+        val earlier = points.dropLast(1)
+        val reconciledEarlier = reconcileTotals(
+            points = earlier,
+            wifiTotalBytes = (wifiTotalBytes - latestWifiBytes).coerceAtLeast(0),
+            mobileTotalBytes = (mobileTotalBytes - latestMobileBytes).coerceAtLeast(0)
+        )
+        return reconciledEarlier + points.last().copy(
+            wifiBytes = latestWifiBytes.coerceAtLeast(0),
+            mobileBytes = latestMobileBytes.coerceAtLeast(0)
+        )
+    }
+
     fun distribute(
         bucketStartMillis: Long,
         bucketEndMillis: Long,
