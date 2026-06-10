@@ -86,6 +86,7 @@ import com.adam.app_monitoring.core.model.TrafficUsage
 import com.adam.app_monitoring.core.util.ByteFormatter
 import com.adam.app_monitoring.data.ThemePreference
 import com.adam.app_monitoring.data.UpdateInterval
+import com.adam.app_monitoring.data.WidgetUpdateInterval
 import com.adam.app_monitoring.data.SettingsStore
 import com.adam.app_monitoring.data.ActiveConnection
 import com.adam.app_monitoring.data.NetworkStatus
@@ -1296,6 +1297,44 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
             )
         }
 
+        item { SectionTitle("Виджет") }
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        "Интервал обновления",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        "Android может немного задерживать фоновые обновления для экономии батареи.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        WidgetUpdateInterval.entries.forEach { interval ->
+                            FilterChip(
+                                selected = settings.widgetUpdateInterval == interval,
+                                onClick = {
+                                    viewModel.updateSettings {
+                                        it.copy(widgetUpdateInterval = interval)
+                                    }
+                                },
+                                label = { Text(interval.label()) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         item { SectionTitle("Лимит мобильного трафика") }
         item {
             ToggleSetting(
@@ -1640,6 +1679,14 @@ private fun UpdateInterval.label(): String = when (this) {
     UpdateInterval.HOUR_1 -> "1 час"
     UpdateInterval.HOURS_3 -> "3 часа"
     UpdateInterval.HOURS_6 -> "6 часов"
+}
+
+private fun WidgetUpdateInterval.label(): String = when (this) {
+    WidgetUpdateInterval.MINUTES_5 -> "5 мин"
+    WidgetUpdateInterval.MINUTES_15 -> "15 мин"
+    WidgetUpdateInterval.MINUTES_30 -> "30 мин"
+    WidgetUpdateInterval.HOUR_1 -> "1 час"
+    WidgetUpdateInterval.HOURS_3 -> "3 часа"
 }
 
 private fun ThemePreference.label(): String = when (this) {

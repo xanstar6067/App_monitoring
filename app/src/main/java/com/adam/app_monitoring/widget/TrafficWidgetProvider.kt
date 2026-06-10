@@ -61,7 +61,6 @@ class TrafficWidgetProvider : AppWidgetProvider() {
         private const val ACTION_PERIODIC_REFRESH =
             "com.adam.app_monitoring.widget.action.PERIODIC_REFRESH"
         private const val WIDGET_REFRESH_WORK_NAME = "traffic_widget_refresh"
-        private const val REFRESH_INTERVAL_MS = 5 * 60 * 1000L
 
         fun updateAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
@@ -77,6 +76,16 @@ class TrafficWidgetProvider : AppWidgetProvider() {
                 ComponentName(context, TrafficWidgetProvider::class.java)
             )
             if (ids.isNotEmpty()) schedulePeriodicRefresh(context)
+        }
+
+        fun reschedulePeriodicRefreshIfActive(context: Context) {
+            val manager = AppWidgetManager.getInstance(context)
+            val ids = manager.getAppWidgetIds(
+                ComponentName(context, TrafficWidgetProvider::class.java)
+            )
+            if (ids.isEmpty()) return
+            cancelPeriodicRefresh(context)
+            schedulePeriodicRefresh(context)
         }
 
         private fun enqueueRefresh(context: Context) {
@@ -216,10 +225,15 @@ class TrafficWidgetProvider : AppWidgetProvider() {
             )
 
         private fun schedulePeriodicRefresh(context: Context) {
+            val intervalMillis = ServiceLocator.from(context)
+                .settings
+                .read()
+                .widgetUpdateInterval
+                .minutes * 60 * 1000L
             context.getSystemService(AlarmManager::class.java).setInexactRepeating(
                 AlarmManager.ELAPSED_REALTIME,
-                SystemClock.elapsedRealtime() + REFRESH_INTERVAL_MS,
-                REFRESH_INTERVAL_MS,
+                SystemClock.elapsedRealtime() + intervalMillis,
+                intervalMillis,
                 periodicPendingIntent(context)
             )
         }

@@ -19,6 +19,7 @@ import com.adam.app_monitoring.data.UsageAccessMissingException
 import com.adam.app_monitoring.data.UserSettings
 import com.adam.app_monitoring.data.NetworkStatus
 import com.adam.app_monitoring.data.NetworkStatusMonitor
+import com.adam.app_monitoring.widget.TrafficWidgetProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -262,10 +263,14 @@ class TrafficViewModel(
     }
 
     fun updateSettings(transform: (UserSettings) -> UserSettings) {
-        val updated = transform(_state.value.settings)
+        val previous = _state.value.settings
+        val updated = transform(previous)
         services.settings.write(updated)
         _state.update { it.copy(settings = updated) }
         WorkScheduler.ensurePeriodic(appContext)
+        if (previous.widgetUpdateInterval != updated.widgetUpdateInterval) {
+            TrafficWidgetProvider.reschedulePeriodicRefreshIfActive(appContext)
+        }
     }
 
     fun clearCache() {

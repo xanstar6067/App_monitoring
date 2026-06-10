@@ -17,9 +17,18 @@ enum class UpdateInterval(val minutes: Long) {
     HOURS_6(360)
 }
 
+enum class WidgetUpdateInterval(val minutes: Long) {
+    MINUTES_5(5),
+    MINUTES_15(15),
+    MINUTES_30(30),
+    HOUR_1(60),
+    HOURS_3(180)
+}
+
 data class UserSettings(
     val backgroundEnabled: Boolean = true,
     val updateInterval: UpdateInterval = UpdateInterval.HOUR_1,
+    val widgetUpdateInterval: WidgetUpdateInterval = WidgetUpdateInterval.MINUTES_5,
     val requireBatteryNotLow: Boolean = true,
     val refreshAfterBoot: Boolean = true,
     val trafficLimitNotificationsEnabled: Boolean = false,
@@ -42,6 +51,10 @@ class SettingsStore(context: Context) {
             prefs.getString(KEY_INTERVAL, null),
             UpdateInterval.HOUR_1
         ),
+        widgetUpdateInterval = enumValueOrDefault(
+            prefs.getString(KEY_WIDGET_INTERVAL, null),
+            WidgetUpdateInterval.MINUTES_5
+        ),
         requireBatteryNotLow = prefs.getBoolean(KEY_BATTERY_NOT_LOW, true),
         refreshAfterBoot = prefs.getBoolean(KEY_REFRESH_AFTER_BOOT, true),
         trafficLimitNotificationsEnabled = prefs.getBoolean(KEY_LIMIT_NOTIFICATIONS, false),
@@ -60,6 +73,7 @@ class SettingsStore(context: Context) {
         prefs.edit()
             .putBoolean(KEY_BACKGROUND_ENABLED, settings.backgroundEnabled)
             .putString(KEY_INTERVAL, settings.updateInterval.name)
+            .putString(KEY_WIDGET_INTERVAL, settings.widgetUpdateInterval.name)
             .putBoolean(KEY_BATTERY_NOT_LOW, settings.requireBatteryNotLow)
             .putBoolean(KEY_REFRESH_AFTER_BOOT, settings.refreshAfterBoot)
             .putBoolean(KEY_LIMIT_NOTIFICATIONS, settings.trafficLimitNotificationsEnabled)
@@ -142,6 +156,7 @@ class SettingsStore(context: Context) {
         private const val DIRECT_PREFS_NAME = "traffic_direct_boot"
         const val KEY_BACKGROUND_ENABLED = "background_enabled"
         const val KEY_INTERVAL = "update_interval"
+        const val KEY_WIDGET_INTERVAL = "widget_update_interval"
         const val KEY_BATTERY_NOT_LOW = "battery_not_low"
         const val KEY_REFRESH_AFTER_BOOT = "refresh_after_boot"
         const val KEY_LIMIT_NOTIFICATIONS = "limit_notifications"
