@@ -14,6 +14,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.Icon
 import android.net.TrafficStats
@@ -173,19 +174,61 @@ class NetworkSpeedService : Service() {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val icon = NetworkSpeedFormatter.iconText(bytesPerSecond)
-        val compactUnit = icon.unit.substringBefore('/')
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             textAlign = Paint.Align.LEFT
-            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
-            textSize = 101f
+            typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
         }
-        val contentLeft = 2f
-        val unitLeft = 70f
-        canvas.drawText(icon.value, contentLeft, 81f, paint)
-        paint.textSize = 50f
-        canvas.drawText(compactUnit, unitLeft, 81f, paint)
+
+        drawTextFitted(
+            canvas = canvas,
+            text = icon.value,
+            paint = paint,
+            left = 3f,
+            top = 2f,
+            right = size - 3f,
+            bottom = 70f
+        )
+
+        drawTextFitted(
+            canvas = canvas,
+            text = icon.unit,
+            paint = paint,
+            left = 8f,
+            top = 70f,
+            right = size - 8f,
+            bottom = size - 2f
+        )
         return bitmap
+    }
+
+    private fun drawTextFitted(
+        canvas: Canvas,
+        text: String,
+        paint: Paint,
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float
+    ) {
+        val availableWidth = right - left
+        val availableHeight = bottom - top
+
+        paint.textSize = availableHeight
+        val bounds = Rect()
+        paint.getTextBounds(text, 0, text.length, bounds)
+        if (bounds.width() == 0 || bounds.height() == 0) return
+
+        val scale = minOf(
+            availableWidth / bounds.width(),
+            availableHeight / bounds.height()
+        )
+        paint.textSize *= scale
+        paint.getTextBounds(text, 0, text.length, bounds)
+
+        val x = (left + right - bounds.left - bounds.right) / 2f
+        val baseline = (top + bottom - bounds.top - bounds.bottom) / 2f
+        canvas.drawText(text, x, baseline, paint)
     }
 
     private fun createLargeIcon(bytesPerSecond: Long): Bitmap {
