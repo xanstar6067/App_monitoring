@@ -100,5 +100,6 @@ data class TrafficSnapshot(
 
 data class PermissionState(
     val usageAccessGranted: Boolean,
-    val ignoringBatteryOptimizations: Boolean
+    val ignoringBatteryOptimizations: Boolean,
+    val notificationsGranted: Boolean = true
 )

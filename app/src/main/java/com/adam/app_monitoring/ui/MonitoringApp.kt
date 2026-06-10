@@ -1,5 +1,6 @@
 package com.adam.app_monitoring.ui
 
+import android.Manifest
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
@@ -8,6 +9,8 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -32,6 +35,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -43,6 +47,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -51,6 +56,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -65,6 +71,7 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.adam.app_monitoring.core.model.AppTraffic
@@ -76,6 +83,7 @@ import com.adam.app_monitoring.core.model.TrafficUsage
 import com.adam.app_monitoring.core.util.ByteFormatter
 import com.adam.app_monitoring.data.ThemePreference
 import com.adam.app_monitoring.data.UpdateInterval
+import com.adam.app_monitoring.data.SettingsStore
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -961,6 +969,19 @@ private fun EmptyDataCard(hasPermission: Boolean) {
 private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
     val context = LocalContext.current
     val settings = state.settings
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.onResume()
+        if (granted) {
+            viewModel.updateSettings {
+                it.copy(
+                    trafficLimitNotificationsEnabled = true,
+                    backgroundEnabled = true
+                )
+            }
+        }
+    }
     val lastRefresh = viewModel.diagnosticLastRefreshAt()
     val lastBoot = viewModel.diagnosticLastBootAt()
     val lastBootRefresh = viewModel.diagnosticLastBootRefreshAt()
@@ -987,6 +1008,24 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
                     context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
                 }
             )
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            item {
+                PermissionSettingCard(
+                    title = "Уведомления",
+                    description = "Нужны для предупреждения о приближении к лимиту трафика.",
+                    status = if (state.permissions.notificationsGranted) {
+                        "Разрешено"
+                    } else {
+                        "Не разрешено"
+                    },
+                    color = if (state.permissions.notificationsGranted) StatusGreen else StatusRed,
+                    button = if (state.permissions.notificationsGranted) null else "Разрешить",
+                    onClick = {
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                )
+            }
         }
         item {
             PermissionSettingCard(
@@ -1111,6 +1150,70 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
             )
         }
 
+        item { SectionTitle("Лимит мобильного трафика") }
+        item {
+            ToggleSetting(
+                title = "Предупреждать о приближении к лимиту",
+                description = "Проверка выполняется при обновлении статистики. Фоновое обновление включается автоматически.",
+                checked = settings.trafficLimitNotificationsEnabled,
+                onCheckedChange = { enabled ->
+                    if (enabled &&
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        !state.permissions.notificationsGranted
+                    ) {
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        viewModel.updateSettings {
+                            it.copy(
+                                trafficLimitNotificationsEnabled = enabled,
+                                backgroundEnabled = if (enabled) true else it.backgroundEnabled
+                            )
+                        }
+                    }
+                }
+            )
+        }
+        item {
+            NumericSettingField(
+                title = "Лимит на период",
+                value = settings.monthlyTrafficLimitMb,
+                suffix = "МБ",
+                allowedRange = SettingsStore.MIN_LIMIT_MB..SettingsStore.MAX_LIMIT_MB,
+                onValueChange = { value ->
+                    viewModel.updateSettings { it.copy(monthlyTrafficLimitMb = value) }
+                }
+            )
+        }
+        item {
+            NumericSettingField(
+                title = "Предупредить при",
+                value = settings.trafficWarningPercent,
+                suffix = "%",
+                allowedRange = 1..100,
+                onValueChange = { value ->
+                    viewModel.updateSettings { it.copy(trafficWarningPercent = value) }
+                }
+            )
+        }
+        item {
+            NumericSettingField(
+                title = "Первый день расчетного периода",
+                value = settings.billingCycleStartDay,
+                suffix = "число месяца",
+                allowedRange = 1..31,
+                onValueChange = { value ->
+                    viewModel.updateSettings { it.copy(billingCycleStartDay = value) }
+                }
+            )
+        }
+        item {
+            Text(
+                "Учитывается только мобильный трафик. Для коротких месяцев день 29–31 переносится на последний день месяца.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
         item { SectionTitle("Интерфейс") }
         item {
             Text("Тема", style = MaterialTheme.typography.labelLarge)
@@ -1221,6 +1324,7 @@ private fun PermissionSettingCard(
 @Composable
 private fun ToggleSetting(
     title: String,
+    description: String? = null,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
@@ -1231,10 +1335,59 @@ private fun ToggleSetting(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(title, modifier = Modifier.weight(1f))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(title)
+                if (description != null) {
+                    Text(
+                        description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             Switch(checked = checked, onCheckedChange = onCheckedChange)
         }
     }
+}
+
+@Composable
+private fun NumericSettingField(
+    title: String,
+    value: Int,
+    suffix: String,
+    allowedRange: IntRange,
+    onValueChange: (Int) -> Unit
+) {
+    var text by remember(value) { mutableStateOf(value.toString()) }
+    val parsed = text.toIntOrNull()
+    val invalid = parsed == null || parsed !in allowedRange
+
+    OutlinedTextField(
+        value = text,
+        onValueChange = { raw ->
+            val digits = raw.filter(Char::isDigit).take(9)
+            text = digits
+            digits.toIntOrNull()
+                ?.takeIf { it in allowedRange }
+                ?.let(onValueChange)
+        },
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(title) },
+        suffix = { Text(suffix) },
+        supportingText = if (invalid) {
+            {
+                Text("Допустимо: ${allowedRange.first}–${allowedRange.last}")
+            }
+        } else {
+            null
+        },
+        isError = invalid,
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+    )
 }
 
 @Composable

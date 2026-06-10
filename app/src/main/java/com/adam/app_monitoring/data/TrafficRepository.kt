@@ -155,6 +155,23 @@ class TrafficRepository(
         }
     }
 
+    suspend fun loadUsageForRange(
+        startMillis: Long,
+        endMillis: Long
+    ): TrafficUsage = withContext(Dispatchers.IO) {
+        withTimeout(INTERVAL_LOAD_TIMEOUT_MS) {
+            refreshMutex.withLock {
+                requireUsageAccess()
+                networkStatsReader.read(
+                    startMillis = startMillis,
+                    endMillis = endMillis,
+                    period = TrafficPeriod.MONTH,
+                    includeChart = false
+                ).byUid.values.fold(TrafficUsage()) { total, usage -> total + usage }
+            }
+        }
+    }
+
     private suspend fun closePreviousDay(apps: List<AppRecord>, now: Long) {
         val zone = ZoneId.systemDefault()
         val yesterday = Instant.ofEpochMilli(now).atZone(zone).toLocalDate().minusDays(1)

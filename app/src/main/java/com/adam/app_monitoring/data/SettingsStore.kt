@@ -22,6 +22,10 @@ data class UserSettings(
     val updateInterval: UpdateInterval = UpdateInterval.HOUR_1,
     val requireBatteryNotLow: Boolean = true,
     val refreshAfterBoot: Boolean = true,
+    val trafficLimitNotificationsEnabled: Boolean = false,
+    val monthlyTrafficLimitMb: Int = 10_240,
+    val trafficWarningPercent: Int = 80,
+    val billingCycleStartDay: Int = 1,
     val theme: ThemePreference = ThemePreference.SYSTEM,
     val units: ByteUnitPreference = ByteUnitPreference.AUTO,
     val showPackageName: Boolean = true,
@@ -40,6 +44,11 @@ class SettingsStore(context: Context) {
         ),
         requireBatteryNotLow = prefs.getBoolean(KEY_BATTERY_NOT_LOW, true),
         refreshAfterBoot = prefs.getBoolean(KEY_REFRESH_AFTER_BOOT, true),
+        trafficLimitNotificationsEnabled = prefs.getBoolean(KEY_LIMIT_NOTIFICATIONS, false),
+        monthlyTrafficLimitMb = prefs.getInt(KEY_MONTHLY_LIMIT_MB, 10_240)
+            .coerceIn(MIN_LIMIT_MB, MAX_LIMIT_MB),
+        trafficWarningPercent = prefs.getInt(KEY_WARNING_PERCENT, 80).coerceIn(1, 100),
+        billingCycleStartDay = prefs.getInt(KEY_BILLING_DAY, 1).coerceIn(1, 31),
         theme = enumValueOrDefault(prefs.getString(KEY_THEME, null), ThemePreference.SYSTEM),
         units = enumValueOrDefault(prefs.getString(KEY_UNITS, null), ByteUnitPreference.AUTO),
         showPackageName = prefs.getBoolean(KEY_SHOW_PACKAGE, true),
@@ -53,6 +62,13 @@ class SettingsStore(context: Context) {
             .putString(KEY_INTERVAL, settings.updateInterval.name)
             .putBoolean(KEY_BATTERY_NOT_LOW, settings.requireBatteryNotLow)
             .putBoolean(KEY_REFRESH_AFTER_BOOT, settings.refreshAfterBoot)
+            .putBoolean(KEY_LIMIT_NOTIFICATIONS, settings.trafficLimitNotificationsEnabled)
+            .putInt(
+                KEY_MONTHLY_LIMIT_MB,
+                settings.monthlyTrafficLimitMb.coerceIn(MIN_LIMIT_MB, MAX_LIMIT_MB)
+            )
+            .putInt(KEY_WARNING_PERCENT, settings.trafficWarningPercent.coerceIn(1, 100))
+            .putInt(KEY_BILLING_DAY, settings.billingCycleStartDay.coerceIn(1, 31))
             .putString(KEY_THEME, settings.theme.name)
             .putString(KEY_UNITS, settings.units.name)
             .putBoolean(KEY_SHOW_PACKAGE, settings.showPackageName)
@@ -84,6 +100,13 @@ class SettingsStore(context: Context) {
     }
 
     fun lastError(): String? = prefs.getString(KEY_LAST_ERROR, null)
+
+    fun lastLimitNotificationPeriod(): String? =
+        prefs.getString(KEY_LAST_LIMIT_NOTIFICATION_PERIOD, null)
+
+    fun markLimitNotificationPeriod(periodKey: String) {
+        prefs.edit().putString(KEY_LAST_LIMIT_NOTIFICATION_PERIOD, periodKey).apply()
+    }
 
     fun lastBootRefreshSuccessAt(): Long = prefs.getLong(KEY_LAST_BOOT_REFRESH, 0)
 
@@ -121,6 +144,10 @@ class SettingsStore(context: Context) {
         const val KEY_INTERVAL = "update_interval"
         const val KEY_BATTERY_NOT_LOW = "battery_not_low"
         const val KEY_REFRESH_AFTER_BOOT = "refresh_after_boot"
+        const val KEY_LIMIT_NOTIFICATIONS = "limit_notifications"
+        const val KEY_MONTHLY_LIMIT_MB = "monthly_limit_mb"
+        const val KEY_WARNING_PERCENT = "warning_percent"
+        const val KEY_BILLING_DAY = "billing_day"
         const val KEY_THEME = "theme"
         const val KEY_UNITS = "units"
         const val KEY_SHOW_PACKAGE = "show_package"
@@ -130,7 +157,10 @@ class SettingsStore(context: Context) {
         const val KEY_LAST_REFRESH = "last_refresh"
         const val KEY_LAST_SUCCESS_DATE = "last_success_date"
         const val KEY_LAST_ERROR = "last_error"
+        const val KEY_LAST_LIMIT_NOTIFICATION_PERIOD = "last_limit_notification_period"
         private const val KEY_LAST_BOOT_RECEIVED = "last_boot_received"
         const val KEY_LAST_BOOT_REFRESH = "last_boot_refresh"
+        const val MIN_LIMIT_MB = 1
+        const val MAX_LIMIT_MB = 100_000_000
     }
 }

@@ -19,6 +19,13 @@ class TrafficRefreshWorker(
 
         return try {
             services.repository.refreshBackground(fromBoot = fromBoot)
+            try {
+                TrafficLimitNotifier.checkAndNotify(applicationContext, services)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                // A notification failure must not turn a successful statistics refresh into a retry.
+            }
             Result.success()
         } catch (cancellation: CancellationException) {
             throw cancellation

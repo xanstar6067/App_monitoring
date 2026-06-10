@@ -49,6 +49,40 @@ class TrafficCoreTest {
     }
 
     @Test
+    fun billingCycleUsesConfiguredDay() {
+        val zone = ZoneId.of("UTC")
+        val now = LocalDateTime.of(2026, 6, 10, 14, 35)
+            .atZone(zone)
+            .toInstant()
+            .toEpochMilli()
+
+        val range = TimeRanges.forBillingCycle(7, now, zone)
+
+        val expectedStart = LocalDateTime.of(2026, 6, 7, 0, 0)
+            .atZone(zone)
+            .toInstant()
+            .toEpochMilli()
+        assertEquals(expectedStart, range.startMillis)
+    }
+
+    @Test
+    fun billingCycleClampsDayToEndOfShortMonth() {
+        val zone = ZoneId.of("UTC")
+        val now = LocalDateTime.of(2026, 3, 15, 14, 35)
+            .atZone(zone)
+            .toInstant()
+            .toEpochMilli()
+
+        val range = TimeRanges.forBillingCycle(31, now, zone)
+
+        val expectedStart = LocalDateTime.of(2026, 2, 28, 0, 0)
+            .atZone(zone)
+            .toInstant()
+            .toEpochMilli()
+        assertEquals(expectedStart, range.startMillis)
+    }
+
+    @Test
     fun usageKeepsWifiAndMobileSeparate() {
         val usage = TrafficUsage(
             wifiRxBytes = 10,

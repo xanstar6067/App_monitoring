@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.adam.app_monitoring.background.WorkScheduler
+import com.adam.app_monitoring.background.TrafficLimitNotifier
 import com.adam.app_monitoring.core.model.AppTraffic
 import com.adam.app_monitoring.core.model.ChartPoint
 import com.adam.app_monitoring.core.model.NetworkMode
@@ -200,6 +201,13 @@ class TrafficViewModel(
                     period = period,
                     forceAppScan = forceAppScan
                 )
+                try {
+                    TrafficLimitNotifier.checkAndNotify(appContext, services)
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (_: Exception) {
+                    // The refreshed data remains valid even if Android rejects a notification.
+                }
                 _state.update { current ->
                     if (current.period == period) {
                         current.copy(
