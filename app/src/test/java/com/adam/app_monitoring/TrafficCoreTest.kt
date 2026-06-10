@@ -1,7 +1,10 @@
 package com.adam.app_monitoring
 
 import com.adam.app_monitoring.core.model.NetworkMode
+import com.adam.app_monitoring.core.model.AppRecord
+import com.adam.app_monitoring.core.model.AppTraffic
 import com.adam.app_monitoring.core.model.TrafficPeriod
+import com.adam.app_monitoring.core.model.TrafficSnapshot
 import com.adam.app_monitoring.core.model.TrafficUsage
 import com.adam.app_monitoring.core.util.ByteFormatter
 import com.adam.app_monitoring.core.util.ByteUnitPreference
@@ -96,6 +99,35 @@ class TrafficCoreTest {
         assertEquals(100, usage.bytesFor(NetworkMode.ALL))
         assertEquals(40, usage.rxBytes)
         assertEquals(60, usage.txBytes)
+    }
+
+    @Test
+    fun snapshotKeepsPeriodAndTodayTotalsSeparate() {
+        val app = AppRecord(
+            packageName = "example",
+            uid = 1,
+            appName = "Example",
+            iconCachePath = null,
+            isSystemApp = false,
+            lastSeenAt = 0
+        )
+        val snapshot = TrafficSnapshot(
+            period = TrafficPeriod.MONTH,
+            periodStart = 0,
+            periodEnd = 1,
+            apps = listOf(
+                AppTraffic(
+                    app = app,
+                    periodUsage = TrafficUsage(wifiRxBytes = 100),
+                    todayUsage = TrafficUsage(wifiRxBytes = 25)
+                )
+            ),
+            chart = emptyList(),
+            calculatedAt = 1
+        )
+
+        assertEquals(100, snapshot.totalUsage.totalBytes)
+        assertEquals(25, snapshot.todayTotalUsage.totalBytes)
     }
 
     @Test

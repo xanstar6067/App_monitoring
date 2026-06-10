@@ -47,4 +47,9 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         viewModel.onResume()
     }
+
+    override fun onPause() {
+        viewModel.onPause()
+        super.onPause()
+    }
 }

@@ -17,6 +17,8 @@ import com.adam.app_monitoring.data.ServiceLocator
 import com.adam.app_monitoring.data.Services
 import com.adam.app_monitoring.data.UsageAccessMissingException
 import com.adam.app_monitoring.data.UserSettings
+import com.adam.app_monitoring.data.NetworkStatus
+import com.adam.app_monitoring.data.NetworkStatusMonitor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -32,7 +34,7 @@ import java.time.ZoneId
 enum class MainTab {
     OVERVIEW,
     APPS,
-    CHARTS,
+    STATUS,
     SETTINGS
 }
 
@@ -49,6 +51,7 @@ data class TrafficUiState(
     val intervalApps: List<AppTraffic>? = null,
     val intervalLoading: Boolean = false,
     val loading: Boolean = false,
+    val networkStatus: NetworkStatus = NetworkStatus(),
     val error: String? = null
 )
 
@@ -65,25 +68,42 @@ class TrafficViewModel(
         )
     )
     val state: StateFlow<TrafficUiState> = _state.asStateFlow()
+    private val networkStatusMonitor = NetworkStatusMonitor(appContext)
     private var refreshJob: Job? = null
     private var intervalJob: Job? = null
+    private var appInForeground = false
 
     init {
         WorkScheduler.ensurePeriodic(appContext)
+        viewModelScope.launch {
+            networkStatusMonitor.status.collect { status ->
+                _state.update { it.copy(networkStatus = status) }
+            }
+        }
         maybeRefresh()
     }
 
     fun onResume() {
+        appInForeground = true
         val previous = _state.value.permissions.usageAccessGranted
         val current = services.permissions.state()
         _state.update { it.copy(permissions = current) }
         if (!previous && current.usageAccessGranted) refresh(forceAppScan = true)
+        updateNetworkMonitoring()
+    }
+
+    fun onPause() {
+        appInForeground = false
+        updateNetworkMonitoring()
     }
 
     fun setTab(tab: MainTab) {
         clearChartSelection()
         _state.update { it.copy(tab = tab, selectedApp = null) }
+        updateNetworkMonitoring()
     }
+
+    fun refreshNetworkStatus() = networkStatusMonitor.refresh()
 
     fun setPeriod(period: TrafficPeriod) {
         if (_state.value.period == period) return
@@ -281,6 +301,19 @@ class TrafficViewModel(
         val snapshot = _state.value.snapshot
         val stale = System.currentTimeMillis() - snapshot.calculatedAt >= CACHE_FRESH_MS
         if (_state.value.permissions.usageAccessGranted && stale) refresh()
+    }
+
+    private fun updateNetworkMonitoring() {
+        if (appInForeground && _state.value.tab == MainTab.STATUS) {
+            networkStatusMonitor.start(viewModelScope)
+        } else {
+            networkStatusMonitor.stop()
+        }
+    }
+
+    override fun onCleared() {
+        networkStatusMonitor.stop()
+        super.onCleared()
     }
 
     private fun chartPointEnd(point: ChartPoint, period: TrafficPeriod): Long {

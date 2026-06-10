@@ -2,6 +2,7 @@ package com.adam.app_monitoring.ui
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
@@ -20,6 +21,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -74,6 +76,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.adam.app_monitoring.core.model.AppTraffic
 import com.adam.app_monitoring.core.model.ChartPoint
 import com.adam.app_monitoring.core.model.NetworkMode
@@ -84,6 +87,8 @@ import com.adam.app_monitoring.core.util.ByteFormatter
 import com.adam.app_monitoring.data.ThemePreference
 import com.adam.app_monitoring.data.UpdateInterval
 import com.adam.app_monitoring.data.SettingsStore
+import com.adam.app_monitoring.data.ActiveConnection
+import com.adam.app_monitoring.data.NetworkStatus
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -136,7 +141,11 @@ fun MonitoringApp(
             TopAppBar(
                 title = {
                     Text(
-                        if (selected == null) "Трафик приложений" else selected.app.appName,
+                        when {
+                            selected != null -> selected.app.appName
+                            state.tab == MainTab.STATUS -> "Статус сети"
+                            else -> "Трафик приложений"
+                        },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -149,7 +158,10 @@ fun MonitoringApp(
                     }
                 },
                 actions = {
-                    if (selected == null && state.tab != MainTab.SETTINGS) {
+                    if (
+                        selected == null &&
+                        state.tab in setOf(MainTab.OVERVIEW, MainTab.APPS)
+                    ) {
                         TextButton(
                             enabled = !state.loading,
                             onClick = { viewModel.refresh(forceAppScan = true) }
@@ -185,7 +197,7 @@ fun MonitoringApp(
                 when (state.tab) {
                     MainTab.OVERVIEW -> OverviewScreen(state, viewModel)
                     MainTab.APPS -> AppsScreen(state, viewModel)
-                    MainTab.CHARTS -> ChartsScreen(state, viewModel)
+                    MainTab.STATUS -> StatusScreen(state, viewModel)
                     MainTab.SETTINGS -> SettingsScreen(state, viewModel)
                 }
             }
@@ -212,10 +224,10 @@ private fun BottomNavigation(
             label = { Text("Приложения") }
         )
         NavigationBarItem(
-            selected = selected == MainTab.CHARTS,
-            onClick = { onSelected(MainTab.CHARTS) },
-            icon = { Text("Г") },
-            label = { Text("Графики") }
+            selected = selected == MainTab.STATUS,
+            onClick = { onSelected(MainTab.STATUS) },
+            icon = { Text("С") },
+            label = { Text("Статус") }
         )
         NavigationBarItem(
             selected = selected == MainTab.SETTINGS,
@@ -262,7 +274,9 @@ private fun OverviewScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
         item {
             SummaryCard(
                 usage = state.snapshot.totalUsage,
-                units = state.settings.units
+                units = state.settings.units,
+                todayUsage = state.snapshot.todayTotalUsage
+                    .takeIf { state.period != TrafficPeriod.TODAY }
             )
         }
         item {
@@ -331,26 +345,154 @@ private fun AppsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
 }
 
 @Composable
-private fun ChartsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
+private fun StatusScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
+    val context = LocalContext.current
+    val status = state.networkStatus
+    val locationGranted = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+    val nearbyGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.NEARBY_WIFI_DEVICES
+        ) == PackageManager.PERMISSION_GRANTED
+    val wifiDetailsGranted = locationGranted && nearbyGranted
+    val wifiPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        viewModel.refreshNetworkStatus()
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { PeriodSelector(state.period, viewModel::setPeriod) }
-        item { NetworkSelector(state.networkMode, viewModel::setNetworkMode) }
         item {
-            ChartCard(
-                points = state.snapshot.chart,
-                mode = state.networkMode,
-                total = state.snapshot.totalUsage.bytesFor(state.networkMode),
-                units = state.settings.units,
-                selectedPoint = state.selectedChartPoint,
-                onPointSelected = viewModel::selectChartPoint,
-                onSelectionCleared = viewModel::clearChartSelection
+            StatusCard("Подключение") {
+                StatusLine("Используется", status.connection.label())
+                StatusLine("Доступ в интернет", yesNo(status.validated))
+                StatusLine("VPN", if (status.vpnActive) "Включён" else "Не обнаружен")
+                StatusLine("Локальный IP", status.localIp ?: "Нет данных")
+                StatusLine(
+                    "Внешний IP",
+                    when {
+                        status.externalIpLoading -> "Определяется..."
+                        status.externalIp != null -> status.externalIp
+                        status.connected -> "Не удалось определить"
+                        else -> "Нет подключения"
+                    }
+                )
+            }
+        }
+        if (status.connection == ActiveConnection.WIFI) {
+            item {
+                StatusCard("Wi-Fi") {
+                    StatusLine("Сеть", status.wifiSsid ?: "Нет доступа к имени")
+                    StatusLine("Диапазон", wifiBand(status.wifiFrequencyMhz))
+                    StatusLine(
+                        "Частота",
+                        status.wifiFrequencyMhz?.let { "$it МГц" } ?: "Нет данных"
+                    )
+                    StatusLine(
+                        "Уровень сигнала",
+                        signalText(status.wifiSignalDbm, status.wifiSignalLevel)
+                    )
+                    StatusLine(
+                        "MAC точки доступа",
+                        status.wifiBssid ?: "Нет доступа"
+                    )
+                    StatusLine(
+                        "MAC устройства",
+                        status.deviceMac ?: "Скрыт системой Android"
+                    )
+                }
+            }
+            if (!wifiDetailsGranted) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                "Дополнительные данные Wi-Fi",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                "Разрешение нужно для имени сети и MAC точки доступа. " +
+                                    "Приложение не использует эти данные для геолокации.",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    val permissions = buildList {
+                                        add(Manifest.permission.ACCESS_FINE_LOCATION)
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                            add(Manifest.permission.NEARBY_WIFI_DEVICES)
+                                        }
+                                    }
+                                    wifiPermissionLauncher.launch(permissions.toTypedArray())
+                                }
+                            ) {
+                                Text("Разрешить")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (status.connection == ActiveConnection.MOBILE) {
+            item {
+                StatusCard("Мобильная сеть") {
+                    StatusLine(
+                        "Уровень сигнала",
+                        signalText(status.mobileSignalDbm, status.mobileSignalLevel)
+                    )
+                }
+            }
+        }
+        item {
+            Text(
+                "Данные обновляются только пока открыт этот экран. " +
+                    "MAC устройства может быть недоступен из-за ограничений Android.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        item { SummaryCard(state.snapshot.totalUsage, state.settings.units) }
+    }
+}
+
+@Composable
+private fun StatusCard(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            content()
+        }
+    }
+}
+
+@Composable
+private fun StatusLine(title: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            title,
+            modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            value,
+            modifier = Modifier.weight(1f),
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 
@@ -754,7 +896,8 @@ private fun chartAxisLabel(bytes: Long): String {
 @Composable
 private fun SummaryCard(
     usage: TrafficUsage,
-    units: com.adam.app_monitoring.core.util.ByteUnitPreference
+    units: com.adam.app_monitoring.core.util.ByteUnitPreference,
+    todayUsage: TrafficUsage? = null
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -763,6 +906,9 @@ private fun SummaryCard(
         ) {
             Text("Сводка", style = MaterialTheme.typography.titleMedium)
             SummaryLine("Всего", ByteFormatter.format(usage.totalBytes, units))
+            if (todayUsage != null) {
+                SummaryLine("Сегодня", ByteFormatter.format(todayUsage.totalBytes, units))
+            }
             SummaryLine("Wi-Fi", ByteFormatter.format(usage.wifiBytes, units))
             SummaryLine("Мобильная сеть", ByteFormatter.format(usage.mobileBytes, units))
             SummaryLine("Загружено", ByteFormatter.format(usage.rxBytes, units))
@@ -1452,6 +1598,40 @@ private fun selectedIntervalTitle(state: TrafficUiState): String? {
         }
         TrafficPeriod.MONTH -> time.format(DAY_MONTH_FORMATTER)
     }
+}
+
+private fun ActiveConnection.label(): String = when (this) {
+    ActiveConnection.WIFI -> "Wi-Fi"
+    ActiveConnection.MOBILE -> "Мобильные данные"
+    ActiveConnection.ETHERNET -> "Ethernet"
+    ActiveConnection.OTHER -> "Другое подключение"
+    ActiveConnection.NONE -> "Нет подключения"
+}
+
+private fun yesNo(value: Boolean): String = if (value) "Есть" else "Нет"
+
+private fun wifiBand(frequencyMhz: Int?): String = when (frequencyMhz) {
+    null -> "Нет данных"
+    in 2_400..2_500 -> "2,4 ГГц"
+    in 4_900..5_900 -> "5 ГГц"
+    in 5_925..7_125 -> "6 ГГц"
+    else -> "Другая частота"
+}
+
+private fun signalText(dbm: Int?, level: Int?): String {
+    if (dbm == null && level == null) return "Нет данных"
+    val quality = when (level) {
+        4 -> "отличный"
+        3 -> "хороший"
+        2 -> "средний"
+        1 -> "слабый"
+        0 -> "очень слабый"
+        else -> null
+    }
+    return listOfNotNull(
+        dbm?.let { "$it dBm" },
+        quality
+    ).joinToString(", ")
 }
 
 private fun UpdateInterval.label(): String = when (this) {

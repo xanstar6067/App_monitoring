@@ -85,6 +85,9 @@ data class TrafficSnapshot(
     val totalUsage: TrafficUsage = apps.fold(TrafficUsage()) { total, item ->
         total + item.periodUsage
     }
+    val todayTotalUsage: TrafficUsage = apps.fold(TrafficUsage()) { total, item ->
+        total + item.todayUsage
+    }
 
     companion object {
         fun empty(period: TrafficPeriod) = TrafficSnapshot(
