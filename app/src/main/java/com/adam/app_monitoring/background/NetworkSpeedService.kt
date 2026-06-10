@@ -174,30 +174,41 @@ class NetworkSpeedService : Service() {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val icon = NetworkSpeedFormatter.iconText(bytesPerSecond)
+        val statusUnit = when (icon.unit) {
+            "K/s" -> "KB/s"
+            "M/s" -> "MB/s"
+            "G/s" -> "GB/s"
+            else -> icon.unit
+        }
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             textAlign = Paint.Align.LEFT
-            typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
+            typeface = Typeface.create(
+                Typeface.create("sans-serif-condensed", Typeface.NORMAL),
+                900,
+                false
+            )
         }
 
         drawTextFitted(
             canvas = canvas,
             text = icon.value,
             paint = paint,
-            left = 3f,
-            top = 2f,
-            right = size - 3f,
-            bottom = 70f
+            left = 1f,
+            top = 0f,
+            right = size - 1f,
+            bottom = 72f
         )
 
+        paint.typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
         drawTextFitted(
             canvas = canvas,
-            text = icon.unit,
+            text = statusUnit,
             paint = paint,
-            left = 8f,
-            top = 70f,
-            right = size - 8f,
-            bottom = size - 2f
+            left = 2f,
+            top = 68f,
+            right = size - 2f,
+            bottom = size.toFloat()
         )
         return bitmap
     }
