@@ -1270,13 +1270,37 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
                 }
             }
         }
+        if (
+            Build.MANUFACTURER.equals("xiaomi", ignoreCase = true) ||
+            Build.MANUFACTURER.equals("redmi", ignoreCase = true) ||
+            Build.MANUFACTURER.equals("poco", ignoreCase = true)
+        ) {
+            item {
+                PermissionSettingCard(
+                    title = "Xiaomi / HyperOS",
+                    description = "Чтобы индикатор восстанавливался после очистки недавних приложений, " +
+                        "разрешите «Автозапуск» и выберите для батареи режим «Без ограничений».",
+                    status = "Проверьте системные ограничения",
+                    color = StatusAmber,
+                    button = "Настройки приложения",
+                    onClick = {
+                        context.startActivity(
+                            Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.parse("package:${context.packageName}")
+                            )
+                        )
+                    }
+                )
+            }
+        }
 
         item { SectionTitle("Фоновое обновление") }
         item {
             ToggleSetting(
                 title = "Показывать текущую скорость сети",
                 description = "Постоянное уведомление со скоростью загрузки и передачи. " +
-                    "Число в строке состояния обновляется примерно раз в 2 секунды.",
+                    "Число в строке состояния обновляется примерно раз в секунду.",
                 checked = settings.speedNotificationEnabled,
                 onCheckedChange = { enabled ->
                     if (enabled &&

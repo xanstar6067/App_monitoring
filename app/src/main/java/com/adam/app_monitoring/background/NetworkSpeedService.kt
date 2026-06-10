@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -74,6 +75,13 @@ class NetworkSpeedService : Service() {
         totalsJob?.cancel()
         scope.cancel()
         super.onDestroy()
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        if (services.settings.read().speedNotificationEnabled) {
+            scheduleRestart(this)
+        }
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -170,10 +178,14 @@ class NetworkSpeedService : Service() {
             textAlign = Paint.Align.CENTER
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
-        paint.textSize = if (icon.value.length >= 3) 45f else 52f
-        canvas.drawText(icon.value, size / 2f, 55f, paint)
-        paint.textSize = 24f
-        canvas.drawText(icon.unit, size / 2f, 84f, paint)
+        paint.textSize = when (icon.value.length) {
+            1 -> 68f
+            2 -> 62f
+            else -> 54f
+        }
+        canvas.drawText(icon.value, size / 2f, 62f, paint)
+        paint.textSize = 26f
+        canvas.drawText(icon.unit, size / 2f, 91f, paint)
         return bitmap
     }
 
@@ -234,8 +246,10 @@ class NetworkSpeedService : Service() {
     companion object {
         private const val CHANNEL_ID = "network_speed"
         private const val NOTIFICATION_ID = 1002
-        private const val SAMPLE_INTERVAL_MS = 2_000L
+        private const val RESTART_REQUEST_CODE = 1003
+        private const val SAMPLE_INTERVAL_MS = 1_000L
         private const val TOTALS_REFRESH_INTERVAL_MS = 60_000L
+        private const val RESTART_DELAY_MS = 1_500L
 
         fun sync(context: Context) {
             val appContext = context.applicationContext
@@ -244,14 +258,38 @@ class NetworkSpeedService : Service() {
                 .read()
                 .speedNotificationEnabled
             if (enabled && hasNotificationPermission(appContext)) {
+                cancelScheduledRestart(appContext)
                 ContextCompat.startForegroundService(
                     appContext,
                     Intent(appContext, NetworkSpeedService::class.java)
                 )
             } else {
+                cancelScheduledRestart(appContext)
                 appContext.stopService(Intent(appContext, NetworkSpeedService::class.java))
             }
         }
+
+        private fun scheduleRestart(context: Context) {
+            val alarmManager = context.getSystemService(AlarmManager::class.java)
+            alarmManager.setAndAllowWhileIdle(
+                AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                SystemClock.elapsedRealtime() + RESTART_DELAY_MS,
+                restartPendingIntent(context)
+            )
+        }
+
+        private fun cancelScheduledRestart(context: Context) {
+            context.getSystemService(AlarmManager::class.java)
+                .cancel(restartPendingIntent(context))
+        }
+
+        private fun restartPendingIntent(context: Context): PendingIntent =
+            PendingIntent.getForegroundService(
+                context,
+                RESTART_REQUEST_CODE,
+                Intent(context, NetworkSpeedService::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
 
         private fun hasNotificationPermission(context: Context): Boolean =
             Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
