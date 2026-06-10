@@ -1,6 +1,7 @@
 package com.adam.app_monitoring.data
 
 import android.content.Context
+import com.adam.app_monitoring.core.model.AppTraffic
 import com.adam.app_monitoring.core.model.AppRecord
 import com.adam.app_monitoring.core.model.TrafficPeriod
 import com.adam.app_monitoring.core.model.TrafficSnapshot
@@ -129,6 +130,31 @@ class TrafficRepository(
 
     fun clearCache() = database.clearTrafficCache()
 
+    suspend fun loadAppsForInterval(
+        startMillis: Long,
+        endMillis: Long
+    ): List<AppTraffic> = withContext(Dispatchers.IO) {
+        withTimeout(INTERVAL_LOAD_TIMEOUT_MS) {
+            refreshMutex.withLock {
+                requireUsageAccess()
+                val apps = appCatalog.load()
+                val stats = networkStatsReader.read(
+                    startMillis = startMillis,
+                    endMillis = endMillis,
+                    period = TrafficPeriod.TODAY,
+                    includeChart = false
+                )
+                buildRows(apps, stats.byUid, System.currentTimeMillis()).map { row ->
+                    AppTraffic(
+                        app = row.app,
+                        periodUsage = row.usage,
+                        todayUsage = row.usage
+                    )
+                }
+            }
+        }
+    }
+
     private suspend fun closePreviousDay(apps: List<AppRecord>, now: Long) {
         val zone = ZoneId.systemDefault()
         val yesterday = Instant.ofEpochMilli(now).atZone(zone).toLocalDate().minusDays(1)
@@ -174,6 +200,7 @@ class TrafficRepository(
     private companion object {
         const val USER_REFRESH_TIMEOUT_MS = 2 * 60 * 1000L
         const val BACKGROUND_REFRESH_TIMEOUT_MS = 90 * 1000L
+        const val INTERVAL_LOAD_TIMEOUT_MS = 60 * 1000L
     }
 }
 

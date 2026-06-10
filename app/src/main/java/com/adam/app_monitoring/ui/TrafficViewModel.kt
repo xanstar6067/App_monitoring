@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.adam.app_monitoring.background.WorkScheduler
 import com.adam.app_monitoring.core.model.AppTraffic
+import com.adam.app_monitoring.core.model.ChartPoint
 import com.adam.app_monitoring.core.model.NetworkMode
 import com.adam.app_monitoring.core.model.PermissionState
 import com.adam.app_monitoring.core.model.SortMode
@@ -15,6 +16,7 @@ import com.adam.app_monitoring.data.ServiceLocator
 import com.adam.app_monitoring.data.Services
 import com.adam.app_monitoring.data.UsageAccessMissingException
 import com.adam.app_monitoring.data.UserSettings
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +25,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.ZoneId
 
 enum class MainTab {
     OVERVIEW,
@@ -40,6 +44,9 @@ data class TrafficUiState(
     val permissions: PermissionState = PermissionState(false, false),
     val settings: UserSettings = UserSettings(),
     val selectedApp: AppTraffic? = null,
+    val selectedChartPoint: ChartPoint? = null,
+    val intervalApps: List<AppTraffic>? = null,
+    val intervalLoading: Boolean = false,
     val loading: Boolean = false,
     val error: String? = null
 )
@@ -58,6 +65,7 @@ class TrafficViewModel(
     )
     val state: StateFlow<TrafficUiState> = _state.asStateFlow()
     private var refreshJob: Job? = null
+    private var intervalJob: Job? = null
 
     init {
         WorkScheduler.ensurePeriodic(appContext)
@@ -72,12 +80,15 @@ class TrafficViewModel(
     }
 
     fun setTab(tab: MainTab) {
+        clearChartSelection()
         _state.update { it.copy(tab = tab, selectedApp = null) }
     }
 
     fun setPeriod(period: TrafficPeriod) {
         if (_state.value.period == period) return
         refreshJob?.cancel()
+        intervalJob?.cancel()
+        intervalJob = null
         val cached = services.repository.loadCached(period)
             ?: TrafficSnapshot.empty(period)
         _state.update {
@@ -85,6 +96,9 @@ class TrafficViewModel(
                 period = period,
                 snapshot = cached,
                 selectedApp = null,
+                selectedChartPoint = null,
+                intervalApps = null,
+                intervalLoading = false,
                 error = null,
                 loading = false
             )
@@ -93,6 +107,8 @@ class TrafficViewModel(
     }
 
     fun setNetworkMode(mode: NetworkMode) {
+        if (_state.value.networkMode == mode) return
+        clearChartSelection()
         _state.update { it.copy(networkMode = mode) }
     }
 
@@ -102,6 +118,72 @@ class TrafficViewModel(
 
     fun selectApp(app: AppTraffic?) {
         _state.update { it.copy(selectedApp = app) }
+    }
+
+    fun selectChartPoint(point: ChartPoint) {
+        val current = _state.value
+        if (current.selectedChartPoint?.bucketStart == point.bucketStart) return
+        intervalJob?.cancel()
+        val endMillis = chartPointEnd(point, current.period)
+            .coerceAtMost(System.currentTimeMillis())
+        if (endMillis <= point.bucketStart) return
+
+        _state.update {
+            it.copy(
+                selectedChartPoint = point,
+                intervalApps = null,
+                intervalLoading = true,
+                error = null
+            )
+        }
+        intervalJob = viewModelScope.launch {
+            try {
+                val apps = services.repository.loadAppsForInterval(
+                    startMillis = point.bucketStart,
+                    endMillis = endMillis
+                )
+                _state.update { state ->
+                    if (state.selectedChartPoint?.bucketStart == point.bucketStart) {
+                        state.copy(intervalApps = apps, intervalLoading = false)
+                    } else {
+                        state
+                    }
+                }
+            } catch (_: UsageAccessMissingException) {
+                _state.update {
+                    it.copy(
+                        intervalLoading = false,
+                        permissions = services.permissions.state(),
+                        error = "Нет доступа к статистике использования"
+                    )
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                _state.update { state ->
+                    if (state.selectedChartPoint?.bucketStart == point.bucketStart) {
+                        state.copy(
+                            intervalLoading = false,
+                            error = error.message ?: "Не удалось загрузить выбранный интервал"
+                        )
+                    } else {
+                        state
+                    }
+                }
+            }
+        }
+    }
+
+    fun clearChartSelection() {
+        intervalJob?.cancel()
+        intervalJob = null
+        _state.update {
+            it.copy(
+                selectedChartPoint = null,
+                intervalApps = null,
+                intervalLoading = false
+            )
+        }
     }
 
     fun refresh(forceAppScan: Boolean = false) {
@@ -164,7 +246,10 @@ class TrafficViewModel(
             _state.update {
                 it.copy(
                     snapshot = TrafficSnapshot.empty(it.period),
-                    selectedApp = null
+                    selectedApp = null,
+                    selectedChartPoint = null,
+                    intervalApps = null,
+                    intervalLoading = false
                 )
             }
         }
@@ -188,6 +273,14 @@ class TrafficViewModel(
         val snapshot = _state.value.snapshot
         val stale = System.currentTimeMillis() - snapshot.calculatedAt >= CACHE_FRESH_MS
         if (_state.value.permissions.usageAccessGranted && stale) refresh()
+    }
+
+    private fun chartPointEnd(point: ChartPoint, period: TrafficPeriod): Long {
+        val zoned = Instant.ofEpochMilli(point.bucketStart).atZone(ZoneId.systemDefault())
+        return when (period) {
+            TrafficPeriod.TODAY -> zoned.plusHours(1)
+            TrafficPeriod.MONTH -> zoned.plusDays(1)
+        }.toInstant().toEpochMilli()
     }
 
     companion object {

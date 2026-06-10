@@ -50,7 +50,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -103,6 +102,10 @@ fun MonitoringApp(
     BackHandler {
         if (selected != null) {
             viewModel.selectApp(null)
+            return@BackHandler
+        }
+        if (state.selectedChartPoint != null) {
+            viewModel.clearChartSelection()
             return@BackHandler
         }
 
@@ -167,6 +170,7 @@ fun MonitoringApp(
                 AppDetailScreen(
                     app = selected,
                     units = state.settings.units,
+                    intervalSelected = state.selectedChartPoint != null,
                     loadIcon = viewModel::loadIcon
                 )
             } else {
@@ -217,6 +221,7 @@ private fun BottomNavigation(
 @Composable
 private fun OverviewScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
     val apps = filteredApps(state)
+    val intervalTitle = selectedIntervalTitle(state)
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
@@ -240,7 +245,10 @@ private fun OverviewScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
                 points = state.snapshot.chart,
                 mode = state.networkMode,
                 total = state.snapshot.totalUsage.bytesFor(state.networkMode),
-                units = state.settings.units
+                units = state.settings.units,
+                selectedPoint = state.selectedChartPoint,
+                onPointSelected = viewModel::selectChartPoint,
+                onSelectionCleared = viewModel::clearChartSelection
             )
         }
         item {
@@ -255,25 +263,27 @@ private fun OverviewScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Приложения",
+                    intervalTitle?.let { "Приложения за $it" } ?: "Приложения",
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.weight(1f)
                 )
-                if (state.loading) {
+                if (state.loading || state.intervalLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(22.dp))
                 }
             }
         }
-        items(apps.take(20), key = { it.app.packageName }) { app ->
+        val visibleApps = if (state.selectedChartPoint == null) apps.take(20) else apps
+        items(visibleApps, key = { it.app.packageName }) { app ->
             AppTrafficRow(
                 app = app,
                 period = state.period,
+                intervalLabel = intervalTitle,
                 settings = state.settings,
                 onClick = { viewModel.selectApp(app) },
                 loadIcon = viewModel::loadIcon
             )
         }
-        if (!state.loading && apps.isEmpty()) {
+        if (!state.loading && !state.intervalLoading && apps.isEmpty()) {
             item { EmptyDataCard(state.permissions.usageAccessGranted) }
         }
     }
@@ -326,7 +336,10 @@ private fun ChartsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
                 points = state.snapshot.chart,
                 mode = state.networkMode,
                 total = state.snapshot.totalUsage.bytesFor(state.networkMode),
-                units = state.settings.units
+                units = state.settings.units,
+                selectedPoint = state.selectedChartPoint,
+                onPointSelected = viewModel::selectChartPoint,
+                onSelectionCleared = viewModel::clearChartSelection
             )
         }
         item { SummaryCard(state.snapshot.totalUsage, state.settings.units) }
@@ -417,9 +430,19 @@ private fun ChartCard(
     points: List<ChartPoint>,
     mode: NetworkMode,
     total: Long,
-    units: com.adam.app_monitoring.core.util.ByteUnitPreference
+    units: com.adam.app_monitoring.core.util.ByteUnitPreference,
+    selectedPoint: ChartPoint?,
+    onPointSelected: (ChartPoint) -> Unit,
+    onSelectionCleared: () -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                enabled = selectedPoint != null,
+                onClick = onSelectionCleared
+            )
+    ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -438,7 +461,13 @@ private fun ChartCard(
                     )
                 }
             } else {
-                TrafficBarChart(points, mode, units)
+                TrafficBarChart(
+                    points = points,
+                    mode = mode,
+                    units = units,
+                    selectedPoint = selectedPoint,
+                    onPointSelected = onPointSelected
+                )
             }
             Text(
                 "Всего за период: ${ByteFormatter.format(total, units)}",
@@ -452,7 +481,9 @@ private fun ChartCard(
 private fun TrafficBarChart(
     points: List<ChartPoint>,
     mode: NetworkMode,
-    units: com.adam.app_monitoring.core.util.ByteUnitPreference
+    units: com.adam.app_monitoring.core.util.ByteUnitPreference,
+    selectedPoint: ChartPoint?,
+    onPointSelected: (ChartPoint) -> Unit
 ) {
     val wifiColor = Color(0xFFF57C00)
     val mobileColor = Color(0xFFFFB74D)
@@ -462,7 +493,9 @@ private fun TrafficBarChart(
     val values = points.map { it.bytesFor(mode).coerceAtLeast(0) }
     val scaleMax = remember(values) { niceChartMaximum(values.maxOrNull() ?: 0L) }
     val gridSteps = 4
-    var selectedIndex by remember(points, mode) { mutableIntStateOf(-1) }
+    val selectedIndex = points.indexOfFirst {
+        it.bucketStart == selectedPoint?.bucketStart
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (selectedIndex in points.indices) {
@@ -520,12 +553,13 @@ private fun TrafficBarChart(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxSize()
-                    .pointerInput(values) {
+                    .pointerInput(values, onPointSelected) {
                         detectTapGestures { offset ->
                             val slotWidth = size.width / values.size.coerceAtLeast(1)
-                            selectedIndex = floor(offset.x / slotWidth)
+                            val tappedIndex = floor(offset.x / slotWidth)
                                 .toInt()
                                 .coerceIn(values.indices)
+                            onPointSelected(points[tappedIndex])
                         }
                     }
             ) {
@@ -741,6 +775,7 @@ private fun SummaryLine(title: String, value: String) {
 private fun AppTrafficRow(
     app: AppTraffic,
     period: TrafficPeriod,
+    intervalLabel: String? = null,
     settings: com.adam.app_monitoring.data.UserSettings,
     onClick: () -> Unit,
     loadIcon: suspend (AppTraffic) -> Bitmap?
@@ -794,10 +829,10 @@ private fun AppTrafficRow(
                     )
                 }
                 Text(
-                    "${if (period == TrafficPeriod.TODAY) "Сегодня" else "С 1 числа"}: " +
+                    "${intervalLabel ?: if (period == TrafficPeriod.TODAY) "Сегодня" else "С 1 числа"}: " +
                         ByteFormatter.format(app.periodUsage.totalBytes, settings.units)
                 )
-                if (period != TrafficPeriod.TODAY) {
+                if (intervalLabel == null && period != TrafficPeriod.TODAY) {
                     Text(
                         "Сегодня: ${ByteFormatter.format(app.todayUsage.totalBytes, settings.units)}",
                         style = MaterialTheme.typography.bodySmall
@@ -818,6 +853,7 @@ private fun AppTrafficRow(
 private fun AppDetailScreen(
     app: AppTraffic,
     units: com.adam.app_monitoring.core.util.ByteUnitPreference,
+    intervalSelected: Boolean,
     loadIcon: suspend (AppTraffic) -> Bitmap?
 ) {
     val bitmap by produceState<Bitmap?>(null, app.app.packageName) {
@@ -851,16 +887,21 @@ private fun AppDetailScreen(
             }
         }
         item { SummaryCard(app.periodUsage, units) }
-        item {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text("Сегодня", style = MaterialTheme.typography.titleMedium)
-                    SummaryLine("Всего", ByteFormatter.format(app.todayUsage.totalBytes, units))
-                    SummaryLine("Wi-Fi", ByteFormatter.format(app.todayUsage.wifiBytes, units))
-                    SummaryLine("Мобильная сеть", ByteFormatter.format(app.todayUsage.mobileBytes, units))
+        if (!intervalSelected) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text("Сегодня", style = MaterialTheme.typography.titleMedium)
+                        SummaryLine("Всего", ByteFormatter.format(app.todayUsage.totalBytes, units))
+                        SummaryLine("Wi-Fi", ByteFormatter.format(app.todayUsage.wifiBytes, units))
+                        SummaryLine(
+                            "Мобильная сеть",
+                            ByteFormatter.format(app.todayUsage.mobileBytes, units)
+                        )
+                    }
                 }
             }
         }
@@ -1224,7 +1265,12 @@ private fun DiagnosticCard(
 
 private fun filteredApps(state: TrafficUiState): List<AppTraffic> {
     val mode = state.networkMode
-    return state.snapshot.apps
+    val apps = if (state.selectedChartPoint == null) {
+        state.snapshot.apps
+    } else {
+        state.intervalApps.orEmpty()
+    }
+    return apps
         .asSequence()
         .filter { state.settings.showSystemApps || !it.app.isSystemApp }
         .filter {
@@ -1240,6 +1286,19 @@ private fun filteredApps(state: TrafficUiState): List<AppTraffic> {
             }
         )
         .toList()
+}
+
+private fun selectedIntervalTitle(state: TrafficUiState): String? {
+    val point = state.selectedChartPoint ?: return null
+    val time = Instant.ofEpochMilli(point.bucketStart).atZone(ZoneId.systemDefault())
+    return when (state.period) {
+        TrafficPeriod.TODAY -> {
+            val end = time.plusHours(1)
+            "${time.format(DAY_MONTH_FORMATTER)}, " +
+                "${time.format(HOUR_MINUTE_FORMATTER)}–${end.format(HOUR_MINUTE_FORMATTER)}"
+        }
+        TrafficPeriod.MONTH -> time.format(DAY_MONTH_FORMATTER)
+    }
 }
 
 private fun UpdateInterval.label(): String = when (this) {
@@ -1265,5 +1324,9 @@ private fun formatTime(timestamp: Long): String {
 
 private val TIME_FORMATTER: DateTimeFormatter =
     DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
+private val DAY_MONTH_FORMATTER: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("d MMMM")
+private val HOUR_MINUTE_FORMATTER: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("HH:mm")
 
 private const val EXIT_CONFIRMATION_WINDOW_MS = 2_000L
