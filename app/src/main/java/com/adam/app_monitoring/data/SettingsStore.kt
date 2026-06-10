@@ -31,6 +31,7 @@ data class UserSettings(
     val widgetUpdateInterval: WidgetUpdateInterval = WidgetUpdateInterval.MINUTES_5,
     val requireBatteryNotLow: Boolean = true,
     val refreshAfterBoot: Boolean = true,
+    val speedNotificationEnabled: Boolean = false,
     val trafficLimitNotificationsEnabled: Boolean = false,
     val monthlyTrafficLimitMb: Int = 10_240,
     val configuredTrafficRemainingMb: Int = 10_240,
@@ -62,6 +63,7 @@ class SettingsStore(context: Context) {
         ),
         requireBatteryNotLow = prefs.getBoolean(KEY_BATTERY_NOT_LOW, true),
         refreshAfterBoot = prefs.getBoolean(KEY_REFRESH_AFTER_BOOT, true),
+        speedNotificationEnabled = prefs.getBoolean(KEY_SPEED_NOTIFICATION, false),
         trafficLimitNotificationsEnabled = prefs.getBoolean(KEY_LIMIT_NOTIFICATIONS, false),
         monthlyTrafficLimitMb = prefs.getInt(KEY_MONTHLY_LIMIT_MB, 10_240)
             .coerceIn(MIN_LIMIT_MB, MAX_LIMIT_MB),
@@ -88,6 +90,7 @@ class SettingsStore(context: Context) {
             .putString(KEY_WIDGET_INTERVAL, settings.widgetUpdateInterval.name)
             .putBoolean(KEY_BATTERY_NOT_LOW, settings.requireBatteryNotLow)
             .putBoolean(KEY_REFRESH_AFTER_BOOT, settings.refreshAfterBoot)
+            .putBoolean(KEY_SPEED_NOTIFICATION, settings.speedNotificationEnabled)
             .putBoolean(KEY_LIMIT_NOTIFICATIONS, settings.trafficLimitNotificationsEnabled)
             .putInt(
                 KEY_MONTHLY_LIMIT_MB,
@@ -211,6 +214,7 @@ class SettingsStore(context: Context) {
         const val KEY_WIDGET_INTERVAL = "widget_update_interval"
         const val KEY_BATTERY_NOT_LOW = "battery_not_low"
         const val KEY_REFRESH_AFTER_BOOT = "refresh_after_boot"
+        const val KEY_SPEED_NOTIFICATION = "speed_notification"
         const val KEY_LIMIT_NOTIFICATIONS = "limit_notifications"
         const val KEY_MONTHLY_LIMIT_MB = "monthly_limit_mb"
         const val KEY_CONFIGURED_REMAINING_MB = "configured_remaining_mb"

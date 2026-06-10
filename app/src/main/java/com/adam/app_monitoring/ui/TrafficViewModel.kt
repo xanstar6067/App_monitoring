@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.adam.app_monitoring.background.WorkScheduler
 import com.adam.app_monitoring.background.TrafficLimitNotifier
+import com.adam.app_monitoring.background.NetworkSpeedService
 import com.adam.app_monitoring.core.model.AppTraffic
 import com.adam.app_monitoring.core.model.ChartPoint
 import com.adam.app_monitoring.core.model.NetworkMode
@@ -284,6 +285,9 @@ class TrafficViewModel(
         WorkScheduler.ensurePeriodic(appContext)
         if (previous.widgetUpdateInterval != updated.widgetUpdateInterval) {
             TrafficWidgetProvider.reschedulePeriodicRefreshIfActive(appContext)
+        }
+        if (previous.speedNotificationEnabled != updated.speedNotificationEnabled) {
+            NetworkSpeedService.sync(appContext)
         }
         if (previous.monthlyTrafficLimitMb != updated.monthlyTrafficLimitMb ||
             previous.billingCycleStartDay != updated.billingCycleStartDay

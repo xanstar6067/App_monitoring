@@ -12,6 +12,7 @@ import com.adam.app_monitoring.core.util.ByteUnitPreference
 import com.adam.app_monitoring.core.util.ChartBuckets
 import com.adam.app_monitoring.core.util.TimeRanges
 import com.adam.app_monitoring.core.util.TrafficLimitBalance
+import com.adam.app_monitoring.core.util.NetworkSpeedFormatter
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -286,5 +287,14 @@ class TrafficCoreTest {
 
         assertTrue(formatted.endsWith("ГБ"))
         assertTrue(formatted.startsWith("2"))
+    }
+
+    @Test
+    fun networkSpeedFormatterChoosesReadableUnits() {
+        assertTrue(NetworkSpeedFormatter.format(0).startsWith("0"))
+        assertTrue(NetworkSpeedFormatter.format(0).endsWith("Байт/с"))
+        assertTrue(NetworkSpeedFormatter.format(1536).endsWith("КБ/с"))
+        assertEquals("1.5", NetworkSpeedFormatter.iconText(1536).value)
+        assertEquals("K/s", NetworkSpeedFormatter.iconText(1536).unit)
     }
 }

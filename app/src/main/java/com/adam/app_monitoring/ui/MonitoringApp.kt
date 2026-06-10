@@ -102,6 +102,12 @@ private val StatusGreen = Color(0xFF2E7D32)
 private val StatusAmber = Color(0xFFF9A825)
 private val StatusRed = Color(0xFFC62828)
 
+private enum class NotificationPermissionTarget {
+    NONE,
+    SPEED,
+    LIMIT
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MonitoringApp(
@@ -1127,18 +1133,32 @@ private fun EmptyDataCard(hasPermission: Boolean) {
 private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
     val context = LocalContext.current
     val settings = state.settings
+    var notificationPermissionTarget by remember {
+        mutableStateOf(NotificationPermissionTarget.NONE)
+    }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         viewModel.onResume()
         if (granted) {
-            viewModel.updateSettings {
-                it.copy(
-                    trafficLimitNotificationsEnabled = true,
-                    backgroundEnabled = true
-                )
+            when (notificationPermissionTarget) {
+                NotificationPermissionTarget.SPEED -> {
+                    viewModel.updateSettings {
+                        it.copy(speedNotificationEnabled = true)
+                    }
+                }
+                NotificationPermissionTarget.LIMIT -> {
+                    viewModel.updateSettings {
+                        it.copy(
+                            trafficLimitNotificationsEnabled = true,
+                            backgroundEnabled = true
+                        )
+                    }
+                }
+                NotificationPermissionTarget.NONE -> Unit
             }
         }
+        notificationPermissionTarget = NotificationPermissionTarget.NONE
     }
     val lastRefresh = viewModel.diagnosticLastRefreshAt()
     val lastBoot = viewModel.diagnosticLastBootAt()
@@ -1171,7 +1191,7 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
             item {
                 PermissionSettingCard(
                     title = "Уведомления",
-                    description = "Нужны для предупреждения о приближении к лимиту трафика.",
+                    description = "Нужны для постоянной скорости сети и предупреждений о лимите.",
                     status = if (state.permissions.notificationsGranted) {
                         "Разрешено"
                     } else {
@@ -1180,6 +1200,7 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
                     color = if (state.permissions.notificationsGranted) StatusGreen else StatusRed,
                     button = if (state.permissions.notificationsGranted) null else "Разрешить",
                     onClick = {
+                        notificationPermissionTarget = NotificationPermissionTarget.NONE
                         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     }
                 )
@@ -1251,6 +1272,27 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
         }
 
         item { SectionTitle("Фоновое обновление") }
+        item {
+            ToggleSetting(
+                title = "Показывать текущую скорость сети",
+                description = "Постоянное уведомление со скоростью загрузки и передачи. " +
+                    "Число в строке состояния обновляется примерно раз в 2 секунды.",
+                checked = settings.speedNotificationEnabled,
+                onCheckedChange = { enabled ->
+                    if (enabled &&
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        !state.permissions.notificationsGranted
+                    ) {
+                        notificationPermissionTarget = NotificationPermissionTarget.SPEED
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        viewModel.updateSettings {
+                            it.copy(speedNotificationEnabled = enabled)
+                        }
+                    }
+                }
+            )
+        }
         item {
             ToggleSetting(
                 title = "Включить фоновое обновление",
@@ -1357,6 +1399,7 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
                         Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                         !state.permissions.notificationsGranted
                     ) {
+                        notificationPermissionTarget = NotificationPermissionTarget.LIMIT
                         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     } else {
                         viewModel.updateSettings {

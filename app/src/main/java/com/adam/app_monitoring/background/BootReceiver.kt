@@ -18,6 +18,7 @@ class BootReceiver : BroadcastReceiver() {
             WorkScheduler.enqueueBootRefresh(context)
             WorkScheduler.ensurePeriodic(context)
             TrafficWidgetProvider.ensurePeriodicRefreshIfActive(context)
+            NetworkSpeedService.sync(context)
         }
     }
 }
