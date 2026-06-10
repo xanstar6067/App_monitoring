@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="12dp"
+    android:paddingTop="6dp"
+    android:paddingEnd="8dp"
+    android:paddingBottom="6dp">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1.8"
+        android:gravity="center_vertical"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
+            android:includeFontPadding="false"
+            android:text="@string/widget_today"
+            android:textColor="@color/widget_text_secondary"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/widget_total"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:text="@string/widget_no_data"
+            android:textColor="@color/widget_text_primary"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_app_1"
+        style="@style/WidgetAppSlot"
+        tools:ignore="UseCompoundDrawables">
+        <ImageView
+            android:id="@+id/widget_app_1_icon"
+            style="@style/WidgetAppIcon"
+            android:contentDescription="@null" />
+        <TextView
+            android:id="@+id/widget_app_1_usage"
+            style="@style/WidgetAppUsage" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_app_2"
+        style="@style/WidgetAppSlot"
+        tools:ignore="UseCompoundDrawables">
+        <ImageView
+            android:id="@+id/widget_app_2_icon"
+            style="@style/WidgetAppIcon"
+            android:contentDescription="@null" />
+        <TextView
+            android:id="@+id/widget_app_2_usage"
+            style="@style/WidgetAppUsage" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_app_3"
+        style="@style/WidgetAppSlot"
+        tools:ignore="UseCompoundDrawables">
+        <ImageView
+            android:id="@+id/widget_app_3_icon"
+            style="@style/WidgetAppIcon"
+            android:contentDescription="@null" />
+        <TextView
+            android:id="@+id/widget_app_3_usage"
+            style="@style/WidgetAppUsage" />
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/widget_refresh"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:layout_marginStart="4dp"
+        android:background="@drawable/widget_refresh_background"
+        android:contentDescription="@string/widget_refresh"
+        android:padding="9dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_widget_refresh"
+        android:tint="@color/widget_accent" />
+</LinearLayout>
