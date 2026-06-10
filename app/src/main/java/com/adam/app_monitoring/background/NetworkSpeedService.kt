@@ -178,23 +178,27 @@ class NetworkSpeedService : Service() {
             color = Color.WHITE
             textAlign = Paint.Align.LEFT
             typeface = Typeface.create("sans-serif", Typeface.NORMAL)
-            textSize = 105f
+            textSize = 103f
         }
         val valueWidth = paint.measureText(icon.value)
-        paint.textSize = 54f
+        paint.textSize = 52f
         val unitWidth = paint.measureText(compactUnit)
         val contentWidth = valueWidth + 2f + unitWidth
-        val startX = (size - contentWidth) / 2f
+        val contentScale = (92f / contentWidth).coerceAtMost(1f)
 
-        paint.textSize = 105f
-        canvas.drawText(icon.value, startX, 85f, paint)
-        paint.textSize = 54f
+        canvas.save()
+        canvas.translate((size - contentWidth * contentScale) / 2f, 0f)
+        canvas.scale(contentScale, contentScale)
+        paint.textSize = 103f
+        canvas.drawText(icon.value, 0f, 83f, paint)
+        paint.textSize = 52f
         canvas.drawText(
             compactUnit,
-            startX + valueWidth + 2f,
-            85f,
+            valueWidth + 2f,
+            83f,
             paint
         )
+        canvas.restore()
         return bitmap
     }
 
