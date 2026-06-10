@@ -12,6 +12,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,6 +50,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -57,7 +59,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -74,7 +78,10 @@ import com.adam.app_monitoring.data.UpdateInterval
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import kotlin.math.max
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.log10
+import kotlin.math.pow
 
 private val StatusGreen = Color(0xFF2E7D32)
 private val StatusAmber = Color(0xFFF9A825)
@@ -335,12 +342,12 @@ private fun PeriodSelector(
             FilterChip(
                 selected = selected == TrafficPeriod.TODAY,
                 onClick = { onSelected(TrafficPeriod.TODAY) },
-                label = { Text("Сегодня") }
+                label = { Text("День") }
             )
             FilterChip(
                 selected = selected == TrafficPeriod.MONTH,
                 onClick = { onSelected(TrafficPeriod.MONTH) },
-                label = { Text("С 1 числа") }
+                label = { Text("Дни") }
             )
         }
     }
@@ -429,8 +436,7 @@ private fun ChartCard(
                     )
                 }
             } else {
-                TrafficBarChart(points, mode)
-                ChartLabels(points)
+                TrafficBarChart(points, mode, units)
             }
             Text(
                 "Всего за период: ${ByteFormatter.format(total, units)}",
@@ -441,49 +447,175 @@ private fun ChartCard(
 }
 
 @Composable
-private fun TrafficBarChart(points: List<ChartPoint>, mode: NetworkMode) {
-    val barColor = MaterialTheme.colorScheme.primary
-    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+private fun TrafficBarChart(
+    points: List<ChartPoint>,
+    mode: NetworkMode,
+    units: com.adam.app_monitoring.core.util.ByteUnitPreference
+) {
+    val barColor = Color(0xFFFF9800)
+    val selectedBarColor = Color(0xFFF57C00)
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val selectedBackground = MaterialTheme.colorScheme.surfaceVariant
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val values = points.map { it.bytesFor(mode).coerceAtLeast(0) }
-    val maxValue = max(1L, values.maxOrNull() ?: 1L)
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(150.dp)
-    ) {
-        val slotWidth = size.width / values.size.coerceAtLeast(1)
-        val barWidth = slotWidth * 0.62f
-        values.forEachIndexed { index, value ->
-            val fraction = value.toFloat() / maxValue.toFloat()
-            val height = size.height * fraction.coerceIn(0f, 1f)
-            val left = index * slotWidth + (slotWidth - barWidth) / 2
-            drawRoundRect(
-                color = trackColor,
-                topLeft = androidx.compose.ui.geometry.Offset(left, 0f),
-                size = androidx.compose.ui.geometry.Size(barWidth, size.height),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
+    val scaleMax = remember(values) { niceChartMaximum(values.maxOrNull() ?: 0L) }
+    val gridSteps = 4
+    var selectedIndex by remember(points, mode) { mutableIntStateOf(-1) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (selectedIndex in points.indices) {
+            val selected = points[selectedIndex]
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(selectedBackground)
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    selected.label,
+                    modifier = Modifier.weight(1f),
+                    color = labelColor
+                )
+                Text(
+                    ByteFormatter.format(selected.bytesFor(mode), units),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        } else {
+            Text(
+                "Нажмите на столбец, чтобы увидеть точное значение",
+                style = MaterialTheme.typography.bodySmall,
+                color = labelColor
             )
-            drawRoundRect(
-                color = barColor,
-                topLeft = androidx.compose.ui.geometry.Offset(left, size.height - height),
-                size = androidx.compose.ui.geometry.Size(barWidth, height),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
-            )
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(165.dp)
+        ) {
+            Canvas(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxSize()
+                    .pointerInput(values) {
+                        detectTapGestures { offset ->
+                            val slotWidth = size.width / values.size.coerceAtLeast(1)
+                            selectedIndex = floor(offset.x / slotWidth)
+                                .toInt()
+                                .coerceIn(values.indices)
+                        }
+                    }
+            ) {
+                val chartBottom = size.height
+                val slotWidth = size.width / values.size.coerceAtLeast(1)
+                val barWidth = (slotWidth * 0.55f).coerceAtMost(18.dp.toPx())
+                val cornerRadius = barWidth / 2f
+
+                repeat(gridSteps + 1) { step ->
+                    val y = chartBottom * step / gridSteps
+                    drawLine(
+                        color = gridColor,
+                        start = androidx.compose.ui.geometry.Offset(0f, y),
+                        end = androidx.compose.ui.geometry.Offset(size.width, y),
+                        strokeWidth = 1.dp.toPx()
+                    )
+                }
+
+                values.forEachIndexed { index, value ->
+                    val fraction = value.toFloat() / scaleMax.toFloat()
+                    val barHeight = (chartBottom * fraction.coerceIn(0f, 1f))
+                        .coerceAtLeast(if (value > 0) 3.dp.toPx() else 0f)
+                    val left = index * slotWidth + (slotWidth - barWidth) / 2f
+                    drawRoundRect(
+                        color = if (index == selectedIndex) selectedBarColor else barColor,
+                        topLeft = androidx.compose.ui.geometry.Offset(left, chartBottom - barHeight),
+                        size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(
+                            cornerRadius,
+                            cornerRadius
+                        )
+                    )
+                    if (index == selectedIndex) {
+                        drawLine(
+                            color = selectedBarColor.copy(alpha = 0.35f),
+                            start = androidx.compose.ui.geometry.Offset(
+                                index * slotWidth + slotWidth / 2f,
+                                0f
+                            ),
+                            end = androidx.compose.ui.geometry.Offset(
+                                index * slotWidth + slotWidth / 2f,
+                                chartBottom
+                            ),
+                            strokeWidth = 2.dp.toPx(),
+                            cap = StrokeCap.Round
+                        )
+                    }
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .width(58.dp)
+                    .height(165.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.End
+            ) {
+                for (step in gridSteps downTo 0) {
+                    Text(
+                        chartAxisLabel(scaleMax * step / gridSteps),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = labelColor,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+
+        val labelIndexes = remember(points) {
+            if (points.size <= 5) points.indices.toList() else {
+                listOf(0, points.size / 2, points.lastIndex).distinct()
+            }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(end = 58.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            labelIndexes.forEach { index ->
+                Text(
+                    points[index].label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = labelColor
+                )
+            }
         }
     }
 }
 
-@Composable
-private fun ChartLabels(points: List<ChartPoint>) {
-    val labels = remember(points) {
-        if (points.size <= 6) points else {
-            val indexes = listOf(0, points.size / 4, points.size / 2, points.size * 3 / 4, points.lastIndex)
-            indexes.distinct().map(points::get)
-        }
+private fun niceChartMaximum(value: Long): Long {
+    if (value <= 0) return 1L
+    val magnitude = 10.0.pow(floor(log10(value.toDouble())))
+    val normalized = value / magnitude
+    val niceNormalized = when {
+        normalized <= 1.0 -> 1.0
+        normalized <= 2.0 -> 2.0
+        normalized <= 5.0 -> 5.0
+        else -> 10.0
     }
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        labels.forEach { Text(it.label, style = MaterialTheme.typography.labelSmall) }
+    return ceil(niceNormalized * magnitude).toLong().coerceAtLeast(1L)
+}
+
+private fun chartAxisLabel(bytes: Long): String {
+    if (bytes <= 0) return "0 Б"
+    val mb = bytes / (1024.0 * 1024.0)
+    if (mb < 1024) {
+        return if (mb >= 10) "${mb.toInt()} МБ" else String.format("%.1f МБ", mb)
     }
+    val gb = mb / 1024.0
+    return if (gb >= 10) "${gb.toInt()} ГБ" else String.format("%.1f ГБ", gb)
 }
 
 @Composable
