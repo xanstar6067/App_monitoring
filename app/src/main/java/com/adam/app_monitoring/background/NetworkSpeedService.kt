@@ -176,13 +176,15 @@ class NetworkSpeedService : Service() {
         val compactUnit = icon.unit.substringBefore('/')
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
-            textAlign = Paint.Align.CENTER
+            textAlign = Paint.Align.LEFT
             typeface = Typeface.create("sans-serif", Typeface.NORMAL)
             textSize = 101f
         }
-        canvas.drawText(icon.value, 37f, 81f, paint)
+        val contentLeft = 2f
+        val unitLeft = 70f
+        canvas.drawText(icon.value, contentLeft, 81f, paint)
         paint.textSize = 50f
-        canvas.drawText(compactUnit, 80f, 81f, paint)
+        canvas.drawText(compactUnit, unitLeft, 81f, paint)
         return bitmap
     }
 
