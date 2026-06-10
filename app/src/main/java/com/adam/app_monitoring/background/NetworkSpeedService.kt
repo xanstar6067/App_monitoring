@@ -179,13 +179,13 @@ class NetworkSpeedService : Service() {
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
         paint.textSize = when (icon.value.length) {
-            1 -> 68f
-            2 -> 62f
-            else -> 54f
+            1 -> 82f
+            2 -> 74f
+            else -> 62f
         }
-        canvas.drawText(icon.value, size / 2f, 62f, paint)
-        paint.textSize = 26f
-        canvas.drawText(icon.unit, size / 2f, 91f, paint)
+        canvas.drawText(icon.value, size / 2f, 70f, paint)
+        paint.textSize = 27f
+        canvas.drawText(icon.unit, size / 2f, 95f, paint)
         return bitmap
     }
 
