@@ -54,6 +54,8 @@ data class TrafficUiState(
     val intervalLoading: Boolean = false,
     val loading: Boolean = false,
     val trafficRemainingBytes: Long? = null,
+    val trafficRemainingSaving: Boolean = false,
+    val lastConfiguredTrafficRemainingMb: Int? = null,
     val networkStatus: NetworkStatus = NetworkStatus(),
     val error: String? = null
 )
@@ -292,6 +294,14 @@ class TrafficViewModel(
     }
 
     fun configureTrafficRemaining(remainingMb: Int) {
+        if (_state.value.trafficRemainingSaving) return
+        _state.update {
+            it.copy(
+                trafficRemainingSaving = true,
+                lastConfiguredTrafficRemainingMb = null,
+                error = null
+            )
+        }
         viewModelScope.launch {
             try {
                 val remainingBytes = TrafficBalanceStore.configure(services, remainingMb)
@@ -300,6 +310,8 @@ class TrafficViewModel(
                     it.copy(
                         settings = settings,
                         trafficRemainingBytes = remainingBytes,
+                        trafficRemainingSaving = false,
+                        lastConfiguredTrafficRemainingMb = settings.configuredTrafficRemainingMb,
                         error = null
                     )
                 }
@@ -308,12 +320,16 @@ class TrafficViewModel(
                 _state.update {
                     it.copy(
                         permissions = services.permissions.state(),
+                        trafficRemainingSaving = false,
                         error = "Разрешите доступ к статистике, чтобы задать остаток"
                     )
                 }
             } catch (error: Exception) {
                 _state.update {
-                    it.copy(error = error.message ?: "Не удалось задать остаток")
+                    it.copy(
+                        trafficRemainingSaving = false,
+                        error = error.message ?: "Не удалось задать остаток"
+                    )
                 }
             }
         }

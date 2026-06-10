@@ -1385,6 +1385,8 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
                 value = settings.configuredTrafficRemainingMb
                     .coerceAtMost(settings.monthlyTrafficLimitMb),
                 limitMb = settings.monthlyTrafficLimitMb,
+                saving = state.trafficRemainingSaving,
+                lastSavedValue = state.lastConfiguredTrafficRemainingMb,
                 onApply = viewModel::configureTrafficRemaining
             )
         }
@@ -1562,11 +1564,14 @@ private fun ToggleSetting(
 private fun TrafficRemainingSetting(
     value: Int,
     limitMb: Int,
+    saving: Boolean,
+    lastSavedValue: Int?,
     onApply: (Int) -> Unit
 ) {
     var text by remember(value, limitMb) { mutableStateOf(value.toString()) }
     val parsed = text.toIntOrNull()
     val invalid = parsed == null || parsed !in SettingsStore.MIN_REMAINING_MB..limitMb
+    val saved = lastSavedValue != null && parsed == lastSavedValue
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -1589,10 +1594,37 @@ private fun TrafficRemainingSetting(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
             Button(
-                enabled = !invalid,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !invalid && !saving,
                 onClick = { parsed?.let(onApply) }
             ) {
-                Text("Применить остаток")
+                if (saving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Сохраняем...")
+                } else {
+                    Text(if (saved) "Сохранено" else "Применить остаток")
+                }
+            }
+            if (saved) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                ) {
+                    Text(
+                        text = "Остаток $lastSavedValue МБ успешно сохранён",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
     }
