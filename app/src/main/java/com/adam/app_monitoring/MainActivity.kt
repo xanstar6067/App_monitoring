@@ -4,44 +4,41 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
+import com.adam.app_monitoring.data.ThemePreference
+import com.adam.app_monitoring.ui.MonitoringApp
+import com.adam.app_monitoring.ui.TrafficViewModel
 import com.adam.app_monitoring.ui.theme.App_monitoringTheme
 
 class MainActivity : ComponentActivity() {
+    private val viewModel: TrafficViewModel by viewModels {
+        TrafficViewModel.factory(applicationContext)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            App_monitoringTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+            val state by viewModel.state.collectAsState()
+            val darkTheme = when (state.settings.theme) {
+                ThemePreference.SYSTEM -> isSystemInDarkTheme()
+                ThemePreference.LIGHT -> false
+                ThemePreference.DARK -> true
+            }
+            App_monitoringTheme(
+                darkTheme = darkTheme,
+                dynamicColor = false
+            ) {
+                MonitoringApp(state = state, viewModel = viewModel)
             }
         }
     }
-}
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    App_monitoringTheme {
-        Greeting("Android")
+    override fun onResume() {
+        super.onResume()
+        viewModel.onResume()
     }
 }

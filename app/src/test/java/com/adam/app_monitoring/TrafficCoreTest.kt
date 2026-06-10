@@ -1,0 +1,77 @@
+package com.adam.app_monitoring
+
+import com.adam.app_monitoring.core.model.NetworkMode
+import com.adam.app_monitoring.core.model.TrafficPeriod
+import com.adam.app_monitoring.core.model.TrafficUsage
+import com.adam.app_monitoring.core.util.ByteFormatter
+import com.adam.app_monitoring.core.util.ByteUnitPreference
+import com.adam.app_monitoring.core.util.TimeRanges
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.time.LocalDateTime
+import java.time.ZoneId
+
+class TrafficCoreTest {
+    @Test
+    fun todayRangeStartsAtLocalMidnight() {
+        val zone = ZoneId.of("Europe/Minsk")
+        val now = LocalDateTime.of(2026, 6, 10, 14, 35)
+            .atZone(zone)
+            .toInstant()
+            .toEpochMilli()
+
+        val range = TimeRanges.forPeriod(TrafficPeriod.TODAY, now, zone)
+
+        val expectedStart = LocalDateTime.of(2026, 6, 10, 0, 0)
+            .atZone(zone)
+            .toInstant()
+            .toEpochMilli()
+        assertEquals(expectedStart, range.startMillis)
+        assertEquals(now, range.endMillis)
+    }
+
+    @Test
+    fun monthRangeStartsOnFirstDay() {
+        val zone = ZoneId.of("UTC")
+        val now = LocalDateTime.of(2026, 6, 10, 14, 35)
+            .atZone(zone)
+            .toInstant()
+            .toEpochMilli()
+
+        val range = TimeRanges.forPeriod(TrafficPeriod.MONTH, now, zone)
+
+        val expectedStart = LocalDateTime.of(2026, 6, 1, 0, 0)
+            .atZone(zone)
+            .toInstant()
+            .toEpochMilli()
+        assertEquals(expectedStart, range.startMillis)
+    }
+
+    @Test
+    fun usageKeepsWifiAndMobileSeparate() {
+        val usage = TrafficUsage(
+            wifiRxBytes = 10,
+            wifiTxBytes = 20,
+            mobileRxBytes = 30,
+            mobileTxBytes = 40
+        )
+
+        assertEquals(30, usage.bytesFor(NetworkMode.WIFI))
+        assertEquals(70, usage.bytesFor(NetworkMode.MOBILE))
+        assertEquals(100, usage.bytesFor(NetworkMode.ALL))
+        assertEquals(40, usage.rxBytes)
+        assertEquals(60, usage.txBytes)
+    }
+
+    @Test
+    fun byteFormatterUsesRequestedUnit() {
+        val formatted = ByteFormatter.format(
+            2L * 1024 * 1024 * 1024,
+            ByteUnitPreference.GB
+        )
+
+        assertTrue(formatted.endsWith("ГБ"))
+        assertTrue(formatted.startsWith("2"))
+    }
+}
