@@ -59,8 +59,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -452,8 +454,8 @@ private fun TrafficBarChart(
     mode: NetworkMode,
     units: com.adam.app_monitoring.core.util.ByteUnitPreference
 ) {
-    val barColor = Color(0xFFFF9800)
-    val selectedBarColor = Color(0xFFF57C00)
+    val wifiColor = Color(0xFFF57C00)
+    val mobileColor = Color(0xFFFFB74D)
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     val selectedBackground = MaterialTheme.colorScheme.surfaceVariant
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -465,23 +467,41 @@ private fun TrafficBarChart(
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (selectedIndex in points.indices) {
             val selected = points[selectedIndex]
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
                     .background(selectedBackground)
                     .padding(horizontal = 12.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text(
-                    selected.label,
-                    modifier = Modifier.weight(1f),
-                    color = labelColor
-                )
-                Text(
-                    ByteFormatter.format(selected.bytesFor(mode), units),
-                    fontWeight = FontWeight.Bold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        selected.label,
+                        modifier = Modifier.weight(1f),
+                        color = labelColor
+                    )
+                    Text(
+                        ByteFormatter.format(selected.bytesFor(mode), units),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                if (mode == NetworkMode.ALL) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        ChartLegendItem(
+                            color = wifiColor,
+                            title = "Wi-Fi",
+                            value = ByteFormatter.format(selected.wifiBytes, units)
+                        )
+                        ChartLegendItem(
+                            color = mobileColor,
+                            title = "Мобильный",
+                            value = ByteFormatter.format(selected.mobileBytes, units)
+                        )
+                    }
+                }
             }
         } else {
             Text(
@@ -525,22 +545,61 @@ private fun TrafficBarChart(
                 }
 
                 values.forEachIndexed { index, value ->
+                    val point = points[index]
                     val fraction = value.toFloat() / scaleMax.toFloat()
                     val barHeight = (chartBottom * fraction.coerceIn(0f, 1f))
                         .coerceAtLeast(if (value > 0) 3.dp.toPx() else 0f)
                     val left = index * slotWidth + (slotWidth - barWidth) / 2f
-                    drawRoundRect(
-                        color = if (index == selectedIndex) selectedBarColor else barColor,
-                        topLeft = androidx.compose.ui.geometry.Offset(left, chartBottom - barHeight),
-                        size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(
-                            cornerRadius,
-                            cornerRadius
+                    val top = chartBottom - barHeight
+
+                    if (mode == NetworkMode.ALL && value > 0) {
+                        val wifiHeight = barHeight * point.wifiBytes.coerceAtLeast(0) / value
+                        val mobileHeight = barHeight - wifiHeight
+                        val barPath = Path().apply {
+                            addRoundRect(
+                                androidx.compose.ui.geometry.RoundRect(
+                                    rect = androidx.compose.ui.geometry.Rect(
+                                        left = left,
+                                        top = top,
+                                        right = left + barWidth,
+                                        bottom = chartBottom
+                                    ),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(
+                                        cornerRadius,
+                                        cornerRadius
+                                    )
+                                )
+                            )
+                        }
+                        clipPath(barPath) {
+                            drawRect(
+                                color = mobileColor,
+                                topLeft = androidx.compose.ui.geometry.Offset(left, top),
+                                size = androidx.compose.ui.geometry.Size(barWidth, mobileHeight)
+                            )
+                            drawRect(
+                                color = wifiColor,
+                                topLeft = androidx.compose.ui.geometry.Offset(
+                                    left,
+                                    top + mobileHeight
+                                ),
+                                size = androidx.compose.ui.geometry.Size(barWidth, wifiHeight)
+                            )
+                        }
+                    } else {
+                        drawRoundRect(
+                            color = if (mode == NetworkMode.MOBILE) mobileColor else wifiColor,
+                            topLeft = androidx.compose.ui.geometry.Offset(left, top),
+                            size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(
+                                cornerRadius,
+                                cornerRadius
+                            )
                         )
-                    )
+                    }
                     if (index == selectedIndex) {
                         drawLine(
-                            color = selectedBarColor.copy(alpha = 0.35f),
+                            color = wifiColor.copy(alpha = 0.35f),
                             start = androidx.compose.ui.geometry.Offset(
                                 index * slotWidth + slotWidth / 2f,
                                 0f
@@ -592,6 +651,38 @@ private fun TrafficBarChart(
                 )
             }
         }
+        if (mode == NetworkMode.ALL && selectedIndex !in points.indices) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                ChartLegendItem(wifiColor, "Wi-Fi")
+                ChartLegendItem(mobileColor, "Мобильный")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChartLegendItem(
+    color: Color,
+    title: String,
+    value: String? = null
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(9.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+        Text(
+            if (value == null) title else "$title: $value",
+            style = MaterialTheme.typography.labelSmall
+        )
     }
 }
 
