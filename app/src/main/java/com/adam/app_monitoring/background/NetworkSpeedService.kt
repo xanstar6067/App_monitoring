@@ -176,16 +176,17 @@ class NetworkSpeedService : Service() {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             textAlign = Paint.Align.CENTER
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+            textSize = 72f
         }
-        paint.textSize = when (icon.value.length) {
-            1 -> 82f
-            2 -> 74f
-            else -> 62f
+        val valueWidth = paint.measureText(icon.value)
+        if (valueWidth > 88f) {
+            paint.textScaleX = 88f / valueWidth
         }
-        canvas.drawText(icon.value, size / 2f, 70f, paint)
-        paint.textSize = 27f
-        canvas.drawText(icon.unit, size / 2f, 95f, paint)
+        canvas.drawText(icon.value, size / 2f, 67f, paint)
+        paint.textScaleX = 1f
+        paint.textSize = 25f
+        canvas.drawText(icon.unit, size / 2f, 94f, paint)
         return bitmap
     }
 
