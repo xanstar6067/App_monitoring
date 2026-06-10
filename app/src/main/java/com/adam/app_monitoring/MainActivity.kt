@@ -32,7 +32,11 @@ class MainActivity : ComponentActivity() {
                 darkTheme = darkTheme,
                 dynamicColor = false
             ) {
-                MonitoringApp(state = state, viewModel = viewModel)
+                MonitoringApp(
+                    state = state,
+                    viewModel = viewModel,
+                    onExit = ::finish
+                )
             }
         }
     }
