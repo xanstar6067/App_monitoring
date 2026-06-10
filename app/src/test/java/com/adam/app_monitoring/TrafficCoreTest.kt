@@ -3,6 +3,7 @@ package com.adam.app_monitoring
 import com.adam.app_monitoring.core.model.NetworkMode
 import com.adam.app_monitoring.core.model.AppRecord
 import com.adam.app_monitoring.core.model.AppTraffic
+import com.adam.app_monitoring.core.model.ChartPoint
 import com.adam.app_monitoring.core.model.TrafficPeriod
 import com.adam.app_monitoring.core.model.TrafficSnapshot
 import com.adam.app_monitoring.core.model.TrafficUsage
@@ -103,6 +104,42 @@ class TrafficCoreTest {
         )
 
         assertEquals(mapOf(rangeStart to 600L), result)
+    }
+
+    @Test
+    fun chartTotalsIncludeDelayedTrafficInLatestBucket() {
+        val points = listOf(
+            ChartPoint(1, "9", wifiBytes = 500, mobileBytes = 20),
+            ChartPoint(2, "10", wifiBytes = 725, mobileBytes = 48)
+        )
+
+        val result = ChartBuckets.reconcileTotals(
+            points = points,
+            wifiTotalBytes = 1_461,
+            mobileTotalBytes = 48
+        )
+
+        assertEquals(500L, result[0].wifiBytes)
+        assertEquals(961L, result[1].wifiBytes)
+        assertEquals(1_509L, result.sumOf { it.wifiBytes + it.mobileBytes })
+    }
+
+    @Test
+    fun chartTotalsAreScaledDownWhenDetailsExceedSummary() {
+        val points = listOf(
+            ChartPoint(1, "1", wifiBytes = 600, mobileBytes = 0),
+            ChartPoint(2, "2", wifiBytes = 400, mobileBytes = 0)
+        )
+
+        val result = ChartBuckets.reconcileTotals(
+            points = points,
+            wifiTotalBytes = 500,
+            mobileTotalBytes = 0
+        )
+
+        assertEquals(500L, result.sumOf { it.wifiBytes })
+        assertEquals(300L, result[0].wifiBytes)
+        assertEquals(200L, result[1].wifiBytes)
     }
 
     @Test

@@ -55,7 +55,15 @@ class NetworkStatsReader(context: Context) {
         }
         val chart = if (includeChart) {
             try {
-                readChart(startMillis, endMillis, period)
+                val detailed = readChart(startMillis, endMillis, period)
+                val totalUsage = totals.values.fold(TrafficUsage()) { total, usage ->
+                    total + usage
+                }
+                ChartBuckets.reconcileTotals(
+                    points = detailed,
+                    wifiTotalBytes = totalUsage.wifiBytes,
+                    mobileTotalBytes = totalUsage.mobileBytes
+                )
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Exception) {

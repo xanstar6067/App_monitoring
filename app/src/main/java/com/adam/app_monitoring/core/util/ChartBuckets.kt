@@ -1,10 +1,28 @@
 package com.adam.app_monitoring.core.util
 
 import com.adam.app_monitoring.core.model.TrafficPeriod
+import com.adam.app_monitoring.core.model.ChartPoint
 import java.time.Instant
 import java.time.ZoneId
 
 object ChartBuckets {
+    fun reconcileTotals(
+        points: List<ChartPoint>,
+        wifiTotalBytes: Long,
+        mobileTotalBytes: Long
+    ): List<ChartPoint> {
+        if (points.isEmpty()) return points
+
+        val wifi = reconcileValues(points.map { it.wifiBytes }, wifiTotalBytes)
+        val mobile = reconcileValues(points.map { it.mobileBytes }, mobileTotalBytes)
+        return points.mapIndexed { index, point ->
+            point.copy(
+                wifiBytes = wifi[index],
+                mobileBytes = mobile[index]
+            )
+        }
+    }
+
     fun distribute(
         bucketStartMillis: Long,
         bucketEndMillis: Long,
@@ -68,5 +86,31 @@ object ChartBuckets {
             TrafficPeriod.TODAY -> zoned.plusHours(1)
             TrafficPeriod.MONTH -> zoned.plusDays(1)
         }.toInstant().toEpochMilli()
+    }
+
+    private fun reconcileValues(values: List<Long>, targetBytes: Long): List<Long> {
+        val safeValues = values.map { it.coerceAtLeast(0) }
+        val target = targetBytes.coerceAtLeast(0)
+        val current = safeValues.sum()
+        if (current == target) return safeValues
+        if (current < target) {
+            return safeValues.toMutableList().apply {
+                this[lastIndex] += target - current
+            }
+        }
+        if (target == 0L) return List(values.size) { 0L }
+
+        var remaining = target
+        return safeValues.mapIndexed { index, value ->
+            val adjusted = if (index == safeValues.lastIndex) {
+                remaining
+            } else {
+                (value.toDouble() / current.toDouble() * target.toDouble())
+                    .toLong()
+                    .coerceIn(0L, remaining)
+            }
+            remaining -= adjusted
+            adjusted
+        }
     }
 }
