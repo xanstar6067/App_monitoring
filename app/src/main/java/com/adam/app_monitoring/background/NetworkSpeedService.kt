@@ -141,7 +141,6 @@ class NetworkSpeedService : Service() {
         txPerSecond: Long,
         usage: TrafficUsage
     ): Notification {
-        val totalSpeed = rxPerSecond + txPerSecond
         val contentIntent = PendingIntent.getActivity(
             this,
             0,
@@ -155,12 +154,12 @@ class NetworkSpeedService : Service() {
         val totals = "Моб.: ${ByteFormatter.format(usage.mobileBytes)}   " +
             "Wi-Fi: ${ByteFormatter.format(usage.wifiBytes)}"
         val smallIcon = statusBarIconRenderer.create(
-            NetworkSpeedFormatter.iconText(totalSpeed).withFullUnit()
+            NetworkSpeedFormatter.iconText(rxPerSecond).withFullUnit()
         )
 
         return Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(smallIcon)
-            .setLargeIcon(createLargeIcon(totalSpeed))
+            .setLargeIcon(createLargeIcon(txPerSecond))
             .setContentTitle(title)
             .setContentText(totals)
             .setStyle(Notification.BigTextStyle().bigText(totals))
