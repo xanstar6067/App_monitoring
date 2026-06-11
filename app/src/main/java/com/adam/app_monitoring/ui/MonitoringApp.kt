@@ -1176,13 +1176,304 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
     } else {
         0
     }
+    val permissionRow: @Composable (
+        title: String,
+        description: String,
+        status: String,
+        color: Color,
+        button: String?,
+        onClick: () -> Unit
+    ) -> Unit = { title, description, status, color, button, onClick ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(title, fontWeight = FontWeight.SemiBold)
+                Text(
+                    if (button == null) description else "$description · $status",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            if (button != null) {
+                OutlinedButton(onClick = onClick) {
+                    Text(button)
+                }
+            } else {
+                Text(
+                    status,
+                    color = color,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+    val toggleRow: @Composable (
+        title: String,
+        description: String?,
+        checked: Boolean,
+        onCheckedChange: (Boolean) -> Unit
+    ) -> Unit = { title, description, checked, onCheckedChange ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(title)
+                if (description != null) {
+                    Text(
+                        description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Switch(checked = checked, onCheckedChange = onCheckedChange)
+        }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { SectionTitle("Разрешения и надёжность") }
+        item { SectionTitle("Разрешения") }
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    permissionRow(
+                        "Статистика использования",
+                        "Нужна для просмотра трафика всех приложений.",
+                        if (state.permissions.usageAccessGranted) "Разрешено" else "Не разрешено",
+                        if (state.permissions.usageAccessGranted) StatusGreen else StatusRed,
+                        if (state.permissions.usageAccessGranted) null else "Открыть"
+                    ) {
+                        context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                    }
+                    HorizontalDivider()
+                    permissionRow(
+                        "Без ограничений батареи",
+                        "Помогает выполнять фоновые обновления вовремя.",
+                        if (state.permissions.ignoringBatteryOptimizations) {
+                            "Без ограничений"
+                        } else {
+                            "Может ограничиваться"
+                        },
+                        if (state.permissions.ignoringBatteryOptimizations) StatusGreen else StatusRed,
+                        if (state.permissions.ignoringBatteryOptimizations) null else "Открыть"
+                    ) {
+                        val direct = Intent(
+                            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                            Uri.parse("package:${context.packageName}")
+                        )
+                        runCatching { context.startActivity(direct) }
+                            .onFailure {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                )
+                            }
+                    }
+                    HorizontalDivider()
+                    permissionRow(
+                        "Уведомления",
+                        "Нужны для индикатора скорости и предупреждений.",
+                        if (state.permissions.notificationsGranted) "Разрешены" else "Не разрешены",
+                        if (state.permissions.notificationsGranted) StatusGreen else StatusRed,
+                        if (state.permissions.notificationsGranted) null else "Разрешить"
+                    ) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notificationPermissionTarget = NotificationPermissionTarget.NONE
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
+                    HorizontalDivider()
+                    permissionRow(
+                        "Точные будильники",
+                        "Снижают задержку восстановления после остановки.",
+                        if (state.permissions.exactAlarmsGranted) "Разрешены" else "Не разрешены",
+                        if (state.permissions.exactAlarmsGranted) StatusGreen else StatusRed,
+                        if (state.permissions.exactAlarmsGranted) null else "Разрешить"
+                    ) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            val intent = Intent(
+                                Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                Uri.parse("package:${context.packageName}")
+                            )
+                            runCatching { context.startActivity(intent) }
+                                .onFailure {
+                                    context.startActivity(
+                                        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                                    )
+                                }
+                        }
+                    }
+                    HorizontalDivider()
+                    permissionRow(
+                        "Автозапуск после перезагрузки",
+                        "Запускает короткую одноразовую задачу обновления.",
+                        when {
+                            lastBootRefresh > 0 -> "Подтверждён"
+                            lastBoot > 0 -> "Ожидается"
+                            else -> "Нельзя проверить"
+                        },
+                        when {
+                            lastBootRefresh > 0 -> StatusGreen
+                            lastBoot > 0 -> StatusAmber
+                            else -> MaterialTheme.colorScheme.outline
+                        },
+                        if (lastBootRefresh > 0) null else "Открыть"
+                    ) {
+                        context.startActivity(
+                            Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.parse("package:${context.packageName}")
+                            )
+                        )
+                    }
+                    HorizontalDivider()
+                    permissionRow(
+                        "Видимость приложений",
+                        "Нужна для полного локального списка приложений.",
+                        "Объявлено",
+                        StatusGreen,
+                        null
+                    ) {}
+                }
+            }
+        }
+        if (isXiaomi) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("Автозапуск Xiaomi", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Включите автозапуск, режим батареи «Без ограничений» и закрепите приложение в недавних.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedButton(
+                            onClick = {
+                                context.startActivity(
+                                    XiaomiBackgroundSupport.autostartIntent(context)
+                                )
+                            }
+                        ) {
+                            Text("Открыть")
+                        }
+                    }
+                }
+            }
+        }
+        if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "Samsung: Настройки → Приложения → Трафик приложений → Батарея. " +
+                            "Режим «Без ограничений» нужен только если штатные обновления заметно задерживаются.",
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            }
+        }
+        item { SectionTitle("Фоновое обновление") }
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    toggleRow(
+                        "Включить фоновое обновление",
+                        null,
+                        settings.backgroundEnabled
+                    ) { value ->
+                        viewModel.updateSettings { it.copy(backgroundEnabled = value) }
+                    }
+                    HorizontalDivider()
+                    toggleRow(
+                        "Не обновлять при низком заряде",
+                        null,
+                        settings.requireBatteryNotLow
+                    ) { value ->
+                        viewModel.updateSettings { it.copy(requireBatteryNotLow = value) }
+                    }
+                    HorizontalDivider()
+                    toggleRow(
+                        "Обновлять после перезагрузки",
+                        null,
+                        settings.refreshAfterBoot
+                    ) { value ->
+                        viewModel.updateSettings { it.copy(refreshAfterBoot = value) }
+                    }
+                    HorizontalDivider()
+                    toggleRow(
+                        "Индикатор скорости сети",
+                        "Постоянное уведомление со скоростью загрузки и передачи.",
+                        settings.speedNotificationEnabled
+                    ) { enabled ->
+                        if (
+                            enabled &&
+                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                            !state.permissions.notificationsGranted
+                        ) {
+                            notificationPermissionTarget = NotificationPermissionTarget.SPEED
+                            notificationPermissionLauncher.launch(
+                                Manifest.permission.POST_NOTIFICATIONS
+                            )
+                        } else {
+                            viewModel.updateSettings {
+                                it.copy(speedNotificationEnabled = enabled)
+                            }
+                        }
+                    }
+                    HorizontalDivider()
+                    Column(modifier = Modifier.padding(vertical = 10.dp)) {
+                        Text("Интервал", style = MaterialTheme.typography.labelLarge)
+                        Spacer(Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            UpdateInterval.entries.forEach { interval ->
+                                FilterChip(
+                                    selected = settings.updateInterval == interval,
+                                    enabled = settings.backgroundEnabled,
+                                    onClick = {
+                                        viewModel.updateSettings {
+                                            it.copy(updateInterval = interval)
+                                        }
+                                    },
+                                    label = { Text(interval.label()) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
         item {
             BackgroundReliabilityCard(
                 notificationsGranted = state.permissions.notificationsGranted,
@@ -1251,131 +1542,6 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
             )
         }
         item {
-            PermissionSettingCard(
-                title = "Доступ к статистике использования",
-                description = "Нужен для просмотра трафика всех приложений.",
-                status = if (state.permissions.usageAccessGranted) "Разрешено" else "Не разрешено",
-                color = if (state.permissions.usageAccessGranted) StatusGreen else StatusRed,
-                button = "Открыть настройки",
-                onClick = {
-                    context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-                }
-            )
-        }
-        item {
-            PermissionSettingCard(
-                title = "Автозапуск после перезагрузки",
-                description = "Receiver только ставит короткую одноразовую WorkManager-задачу.",
-                status = when {
-                    lastBootRefresh > 0 -> "Последний запуск подтверждён"
-                    lastBoot > 0 -> "Загрузка получена, обновление ожидается"
-                    else -> "OEM-ограничение невозможно проверить"
-                },
-                color = when {
-                    lastBootRefresh > 0 -> StatusGreen
-                    lastBoot > 0 -> StatusAmber
-                    else -> MaterialTheme.colorScheme.outline
-                },
-                button = "Настройки приложения",
-                onClick = {
-                    context.startActivity(
-                        Intent(
-                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                            Uri.parse("package:${context.packageName}")
-                        )
-                    )
-                }
-            )
-        }
-        item {
-            PermissionSettingCard(
-                title = "Видимость приложений",
-                description = "Сборка использует QUERY_ALL_PACKAGES для полного локального списка.",
-                status = "Разрешение объявлено",
-                color = StatusGreen
-            )
-        }
-        if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) {
-            item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        "Samsung: Настройки → Приложения → Трафик приложений → Батарея. " +
-                            "Режим «Без ограничений» нужен только если штатные обновления заметно задерживаются.",
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-            }
-        }
-        item { SectionTitle("Фоновое обновление") }
-        item {
-            ToggleSetting(
-                title = "Показывать текущую скорость сети",
-                description = "Постоянное уведомление со скоростью загрузки и передачи. " +
-                    "Число в строке состояния обновляется примерно раз в секунду.",
-                checked = settings.speedNotificationEnabled,
-                onCheckedChange = { enabled ->
-                    if (enabled &&
-                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                        !state.permissions.notificationsGranted
-                    ) {
-                        notificationPermissionTarget = NotificationPermissionTarget.SPEED
-                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        viewModel.updateSettings {
-                            it.copy(speedNotificationEnabled = enabled)
-                        }
-                    }
-                }
-            )
-        }
-        item {
-            ToggleSetting(
-                title = "Включить фоновое обновление",
-                checked = settings.backgroundEnabled,
-                onCheckedChange = { value ->
-                    viewModel.updateSettings { it.copy(backgroundEnabled = value) }
-                }
-            )
-        }
-        item {
-            ToggleSetting(
-                title = "Не обновлять при низком заряде",
-                checked = settings.requireBatteryNotLow,
-                onCheckedChange = { value ->
-                    viewModel.updateSettings { it.copy(requireBatteryNotLow = value) }
-                }
-            )
-        }
-        item {
-            ToggleSetting(
-                title = "Обновлять после перезагрузки",
-                checked = settings.refreshAfterBoot,
-                onCheckedChange = { value ->
-                    viewModel.updateSettings { it.copy(refreshAfterBoot = value) }
-                }
-            )
-        }
-        item {
-            Text("Интервал", style = MaterialTheme.typography.labelLarge)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                UpdateInterval.entries.forEach { interval ->
-                    FilterChip(
-                        selected = settings.updateInterval == interval,
-                        enabled = settings.backgroundEnabled,
-                        onClick = {
-                            viewModel.updateSettings { it.copy(updateInterval = interval) }
-                        },
-                        label = { Text(interval.label()) }
-                    )
-                }
-            }
-        }
-        item {
             DiagnosticCard(
                 lastRefresh = lastRefresh,
                 lastBoot = lastBoot,
@@ -1383,44 +1549,6 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
                 nextRefresh = nextRefresh,
                 error = viewModel.diagnosticLastError()
             )
-        }
-
-        item { SectionTitle("Виджет") }
-        item {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        "Интервал обновления",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        "Android может немного задерживать фоновые обновления для экономии батареи.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        WidgetUpdateInterval.entries.forEach { interval ->
-                            FilterChip(
-                                selected = settings.widgetUpdateInterval == interval,
-                                onClick = {
-                                    viewModel.updateSettings {
-                                        it.copy(widgetUpdateInterval = interval)
-                                    }
-                                },
-                                label = { Text(interval.label()) }
-                            )
-                        }
-                    }
-                }
-            }
         }
 
         item { SectionTitle("Лимит мобильного трафика") }
@@ -1499,6 +1627,44 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
             )
         }
 
+        item { SectionTitle("Виджет") }
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        "Интервал обновления",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        "Android может немного задерживать фоновые обновления для экономии батареи.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        WidgetUpdateInterval.entries.forEach { interval ->
+                            FilterChip(
+                                selected = settings.widgetUpdateInterval == interval,
+                                onClick = {
+                                    viewModel.updateSettings {
+                                        it.copy(widgetUpdateInterval = interval)
+                                    }
+                                },
+                                label = { Text(interval.label()) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         item { SectionTitle("Интерфейс") }
         item {
             Text("Тема", style = MaterialTheme.typography.labelLarge)
@@ -1547,19 +1713,24 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
 
         item { SectionTitle("Данные") }
         item {
-            OutlinedButton(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = viewModel::clearCache
-            ) {
-                Text("Очистить кэш статистики")
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = viewModel::clearCache
+                    ) {
+                        Text("Очистить кэш статистики")
+                    }
+                    Text(
+                        "Данные остаются только на устройстве. Постоянный сервис, VPN и root не используются.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-        }
-        item {
-            Text(
-                "Данные остаются только на устройстве. Постоянный сервис, VPN и root не используются.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
