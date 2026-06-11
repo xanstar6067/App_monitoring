@@ -10,7 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import com.adam.app_monitoring.data.ThemePreference
 import com.adam.app_monitoring.background.TrafficLimitNotifier
-import com.adam.app_monitoring.background.NetworkSpeedService
+import com.adam.app_monitoring.background.NetworkSpeedServiceController
 import com.adam.app_monitoring.ui.MonitoringApp
 import com.adam.app_monitoring.ui.TrafficViewModel
 import com.adam.app_monitoring.ui.theme.App_monitoringTheme
@@ -23,7 +23,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         TrafficLimitNotifier.createChannel(this)
-        NetworkSpeedService.sync(this)
+        NetworkSpeedServiceController.sync(this, "activity_create")
         enableEdgeToEdge()
         setContent {
             val state by viewModel.state.collectAsState()

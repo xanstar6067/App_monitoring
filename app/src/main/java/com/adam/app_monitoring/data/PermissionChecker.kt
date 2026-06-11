@@ -4,6 +4,7 @@ package com.adam.app_monitoring.data
 
 import android.Manifest
 import android.app.AppOpsManager
+import android.app.AlarmManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -15,7 +16,8 @@ class PermissionChecker(private val context: Context) {
     fun state(): PermissionState = PermissionState(
         usageAccessGranted = hasUsageAccess(),
         ignoringBatteryOptimizations = isIgnoringBatteryOptimizations(),
-        notificationsGranted = hasNotificationPermission()
+        notificationsGranted = hasNotificationPermission(),
+        exactAlarmsGranted = canScheduleExactAlarms()
     )
 
     fun hasUsageAccess(): Boolean {
@@ -45,4 +47,8 @@ class PermissionChecker(private val context: Context) {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
+
+    private fun canScheduleExactAlarms(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
 }

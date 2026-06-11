@@ -9,16 +9,25 @@ import com.adam.app_monitoring.widget.TrafficWidgetProvider
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val now = System.currentTimeMillis()
-        SettingsStore.recordDirectBootSignal(context, now)
+        NetworkSpeedDiagnostics.record(context, "system_broadcast", intent.action.orEmpty())
+        if (
+            intent.action == Intent.ACTION_BOOT_COMPLETED ||
+            intent.action == Intent.ACTION_LOCKED_BOOT_COMPLETED
+        ) {
+            SettingsStore.recordDirectBootSignal(context, now)
+        }
         if (intent.action == Intent.ACTION_LOCKED_BOOT_COMPLETED) {
             // WorkManager and the app database use credential-protected storage.
             return
         }
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+        if (
+            intent.action == Intent.ACTION_BOOT_COMPLETED ||
+            intent.action == Intent.ACTION_MY_PACKAGE_REPLACED
+        ) {
             WorkScheduler.enqueueBootRefresh(context)
             WorkScheduler.ensurePeriodic(context)
             TrafficWidgetProvider.ensurePeriodicRefreshIfActive(context)
-            NetworkSpeedService.sync(context)
+            NetworkSpeedServiceController.sync(context, intent.action.orEmpty())
         }
     }
 }

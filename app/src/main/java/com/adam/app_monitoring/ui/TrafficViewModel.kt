@@ -6,7 +6,10 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.adam.app_monitoring.background.WorkScheduler
 import com.adam.app_monitoring.background.TrafficLimitNotifier
-import com.adam.app_monitoring.background.NetworkSpeedService
+import com.adam.app_monitoring.background.NetworkSpeedDiagnostics
+import com.adam.app_monitoring.background.NetworkSpeedServiceController
+import com.adam.app_monitoring.background.ProcessExitSummary
+import com.adam.app_monitoring.background.ServiceDiagnosticEvent
 import com.adam.app_monitoring.core.model.AppTraffic
 import com.adam.app_monitoring.core.model.ChartPoint
 import com.adam.app_monitoring.core.model.NetworkMode
@@ -58,6 +61,9 @@ data class TrafficUiState(
     val trafficRemainingSaving: Boolean = false,
     val lastConfiguredTrafficRemainingMb: Int? = null,
     val networkStatus: NetworkStatus = NetworkStatus(),
+    val serviceHeartbeatAt: Long = 0,
+    val serviceEvents: List<ServiceDiagnosticEvent> = emptyList(),
+    val lastProcessExit: ProcessExitSummary? = null,
     val error: String? = null
 )
 
@@ -73,7 +79,10 @@ class TrafficViewModel(
                 .cachedTrafficRemainingBytes
                 .takeIf { it >= 0 },
             snapshot = services.repository.loadCached(TrafficPeriod.TODAY)
-                ?: TrafficSnapshot.empty(TrafficPeriod.TODAY)
+                ?: TrafficSnapshot.empty(TrafficPeriod.TODAY),
+            serviceHeartbeatAt = NetworkSpeedDiagnostics.lastHeartbeat(appContext),
+            serviceEvents = NetworkSpeedDiagnostics.recentEvents(appContext),
+            lastProcessExit = NetworkSpeedDiagnostics.refreshLastExit(appContext)
         )
     )
     val state: StateFlow<TrafficUiState> = _state.asStateFlow()
@@ -97,7 +106,15 @@ class TrafficViewModel(
         appInForeground = true
         val previous = _state.value.permissions.usageAccessGranted
         val current = services.permissions.state()
-        _state.update { it.copy(permissions = current) }
+        NetworkSpeedServiceController.sync(appContext, "activity_resume")
+        _state.update {
+            it.copy(
+                permissions = current,
+                serviceHeartbeatAt = NetworkSpeedDiagnostics.lastHeartbeat(appContext),
+                serviceEvents = NetworkSpeedDiagnostics.recentEvents(appContext),
+                lastProcessExit = NetworkSpeedDiagnostics.refreshLastExit(appContext)
+            )
+        }
         if (!previous && current.usageAccessGranted) refresh(forceAppScan = true)
         updateNetworkMonitoring()
     }
@@ -287,7 +304,7 @@ class TrafficViewModel(
             TrafficWidgetProvider.reschedulePeriodicRefreshIfActive(appContext)
         }
         if (previous.speedNotificationEnabled != updated.speedNotificationEnabled) {
-            NetworkSpeedService.sync(appContext)
+            NetworkSpeedServiceController.sync(appContext, "setting_changed")
         }
         if (previous.monthlyTrafficLimitMb != updated.monthlyTrafficLimitMb ||
             previous.billingCycleStartDay != updated.billingCycleStartDay
@@ -367,6 +384,21 @@ class TrafficViewModel(
         services.settings.lastBootRefreshSuccessAt()
 
     fun diagnosticLastError(): String? = services.settings.lastError()
+
+    fun testServiceRecovery() {
+        val current = _state.value.settings
+        if (!current.speedNotificationEnabled) {
+            updateSettings { it.copy(speedNotificationEnabled = true) }
+        } else {
+            NetworkSpeedServiceController.sync(appContext, "recovery_test")
+        }
+        _state.update {
+            it.copy(
+                serviceHeartbeatAt = NetworkSpeedDiagnostics.lastHeartbeat(appContext),
+                serviceEvents = NetworkSpeedDiagnostics.recentEvents(appContext)
+            )
+        }
+    }
 
     private fun maybeRefresh() {
         val snapshot = _state.value.snapshot

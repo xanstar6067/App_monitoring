@@ -5,10 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.app.AlarmManager
-import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -19,7 +16,6 @@ import android.net.TrafficStats
 import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
-import androidx.core.content.ContextCompat
 import com.adam.app_monitoring.MainActivity
 import com.adam.app_monitoring.core.model.TrafficPeriod
 import com.adam.app_monitoring.core.model.TrafficUsage
@@ -49,11 +45,13 @@ class NetworkSpeedService : Service() {
     }
     private var samplerJob: Job? = null
     private var totalsJob: Job? = null
+    private var heartbeatJob: Job? = null
     @Volatile
     private var todayUsage = TrafficUsage()
 
     override fun onCreate() {
         super.onCreate()
+        NetworkSpeedDiagnostics.record(this, "service_created")
         createChannel()
         todayUsage = services.repository.loadCached(TrafficPeriod.TODAY)
             ?.todayTotalUsage
@@ -62,6 +60,7 @@ class NetworkSpeedService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (!services.settings.read().speedNotificationEnabled) {
+            NetworkSpeedDiagnostics.record(this, "service_start_skipped", "indicator_disabled")
             stopSelf()
             return START_NOT_STICKY
         }
@@ -69,6 +68,12 @@ class NetworkSpeedService : Service() {
             startInForeground(buildNotification(0, 0, todayUsage))
             startSampling()
             startTotalsRefresh()
+            startHeartbeat()
+            NetworkSpeedDiagnostics.record(
+                this,
+                "service_started",
+                intent?.getStringExtra(EXTRA_START_SOURCE).orEmpty()
+            )
         }
         return START_STICKY
     }
@@ -76,13 +81,16 @@ class NetworkSpeedService : Service() {
     override fun onDestroy() {
         samplerJob?.cancel()
         totalsJob?.cancel()
+        heartbeatJob?.cancel()
+        NetworkSpeedDiagnostics.record(this, "service_destroyed")
         scope.cancel()
         super.onDestroy()
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         if (services.settings.read().speedNotificationEnabled) {
-            scheduleRestart(this)
+            NetworkSpeedDiagnostics.record(this, "task_removed")
+            NetworkSpeedServiceController.scheduleRestart(this, "task_removed")
         }
         super.onTaskRemoved(rootIntent)
     }
@@ -226,6 +234,15 @@ class NetworkSpeedService : Service() {
         return ((current - previous) * 1000L / elapsedMs).coerceAtLeast(0)
     }
 
+    private fun startHeartbeat() {
+        heartbeatJob = scope.launch {
+            while (isActive) {
+                NetworkSpeedDiagnostics.recordHeartbeat(this@NetworkSpeedService)
+                delay(HEARTBEAT_INTERVAL_MS)
+            }
+        }
+    }
+
     private fun SpeedIconText.withFullUnit() = copy(
         unit = when (unit) {
             "K/s" -> "KB/s"
@@ -238,54 +255,10 @@ class NetworkSpeedService : Service() {
     companion object {
         private const val CHANNEL_ID = "network_speed"
         private const val NOTIFICATION_ID = 1002
-        private const val RESTART_REQUEST_CODE = 1003
         private const val SAMPLE_INTERVAL_MS = 1_000L
         private const val TOTALS_REFRESH_INTERVAL_MS = 60_000L
-        private const val RESTART_DELAY_MS = 1_500L
+        private const val HEARTBEAT_INTERVAL_MS = 30_000L
+        const val EXTRA_START_SOURCE = "start_source"
 
-        fun sync(context: Context) {
-            val appContext = context.applicationContext
-            val enabled = ServiceLocator.from(appContext)
-                .settings
-                .read()
-                .speedNotificationEnabled
-            if (enabled && hasNotificationPermission(appContext)) {
-                cancelScheduledRestart(appContext)
-                ContextCompat.startForegroundService(
-                    appContext,
-                    Intent(appContext, NetworkSpeedService::class.java)
-                )
-            } else {
-                cancelScheduledRestart(appContext)
-                appContext.stopService(Intent(appContext, NetworkSpeedService::class.java))
-            }
-        }
-
-        private fun scheduleRestart(context: Context) {
-            val alarmManager = context.getSystemService(AlarmManager::class.java)
-            alarmManager.setAndAllowWhileIdle(
-                AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                SystemClock.elapsedRealtime() + RESTART_DELAY_MS,
-                restartPendingIntent(context)
-            )
-        }
-
-        private fun cancelScheduledRestart(context: Context) {
-            context.getSystemService(AlarmManager::class.java)
-                .cancel(restartPendingIntent(context))
-        }
-
-        private fun restartPendingIntent(context: Context): PendingIntent =
-            PendingIntent.getForegroundService(
-                context,
-                RESTART_REQUEST_CODE,
-                Intent(context, NetworkSpeedService::class.java),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-
-        private fun hasNotificationPermission(context: Context): Boolean =
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
-                PackageManager.PERMISSION_GRANTED
     }
 }

@@ -84,6 +84,7 @@ import com.adam.app_monitoring.core.model.SortMode
 import com.adam.app_monitoring.core.model.TrafficPeriod
 import com.adam.app_monitoring.core.model.TrafficUsage
 import com.adam.app_monitoring.core.util.ByteFormatter
+import com.adam.app_monitoring.background.XiaomiBackgroundSupport
 import com.adam.app_monitoring.data.ThemePreference
 import com.adam.app_monitoring.data.UpdateInterval
 import com.adam.app_monitoring.data.WidgetUpdateInterval
@@ -1147,6 +1148,11 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
                     viewModel.updateSettings {
                         it.copy(speedNotificationEnabled = true)
                     }
+                    Toast.makeText(
+                        context,
+                        "Индикатор запущен. Смахните приложение из недавних и подождите до 10 секунд.",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
                 NotificationPermissionTarget.LIMIT -> {
                     viewModel.updateSettings {
@@ -1164,6 +1170,7 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
     val lastRefresh = viewModel.diagnosticLastRefreshAt()
     val lastBoot = viewModel.diagnosticLastBootAt()
     val lastBootRefresh = viewModel.diagnosticLastBootRefreshAt()
+    val isXiaomi = XiaomiBackgroundSupport.isXiaomiDevice()
     val nextRefresh = if (lastRefresh > 0 && settings.backgroundEnabled) {
         lastRefresh + settings.updateInterval.minutes * 60_000
     } else {
@@ -1177,6 +1184,73 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
     ) {
         item { SectionTitle("Разрешения и надёжность") }
         item {
+            BackgroundReliabilityCard(
+                notificationsGranted = state.permissions.notificationsGranted,
+                batteryUnrestricted = state.permissions.ignoringBatteryOptimizations,
+                exactAlarmsGranted = state.permissions.exactAlarmsGranted,
+                isXiaomi = isXiaomi,
+                heartbeatAt = state.serviceHeartbeatAt,
+                lastExit = state.lastProcessExit?.let {
+                    "${it.reason}, ${formatTime(it.timestamp)}"
+                },
+                events = state.serviceEvents.take(5).map {
+                    "${formatTime(it.timestamp)} · ${it.type}" +
+                        if (it.details.isBlank()) "" else " · ${it.details}"
+                },
+                onNotifications = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        notificationPermissionTarget = NotificationPermissionTarget.NONE
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                },
+                onBattery = {
+                    val direct = Intent(
+                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                        Uri.parse("package:${context.packageName}")
+                    )
+                    runCatching { context.startActivity(direct) }
+                        .onFailure {
+                            context.startActivity(
+                                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                            )
+                        }
+                },
+                onExactAlarms = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        val intent = Intent(
+                            Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                            Uri.parse("package:${context.packageName}")
+                        )
+                        runCatching { context.startActivity(intent) }
+                            .onFailure {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                                )
+                            }
+                    }
+                },
+                onXiaomiAutostart = {
+                    context.startActivity(XiaomiBackgroundSupport.autostartIntent(context))
+                },
+                onTest = {
+                    if (
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        !state.permissions.notificationsGranted
+                    ) {
+                        notificationPermissionTarget = NotificationPermissionTarget.SPEED
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        viewModel.testServiceRecovery()
+                        Toast.makeText(
+                            context,
+                            "Индикатор запущен. Теперь смахните приложение из недавних и подождите до 10 секунд.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            )
+        }
+        item {
             PermissionSettingCard(
                 title = "Доступ к статистике использования",
                 description = "Нужен для просмотра трафика всех приложений.",
@@ -1185,45 +1259,6 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
                 button = "Открыть настройки",
                 onClick = {
                     context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-                }
-            )
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            item {
-                PermissionSettingCard(
-                    title = "Уведомления",
-                    description = "Нужны для постоянной скорости сети и предупреждений о лимите.",
-                    status = if (state.permissions.notificationsGranted) {
-                        "Разрешено"
-                    } else {
-                        "Не разрешено"
-                    },
-                    color = if (state.permissions.notificationsGranted) StatusGreen else StatusRed,
-                    button = if (state.permissions.notificationsGranted) null else "Разрешить",
-                    onClick = {
-                        notificationPermissionTarget = NotificationPermissionTarget.NONE
-                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    }
-                )
-            }
-        }
-        item {
-            PermissionSettingCard(
-                title = "Оптимизация батареи",
-                description = "Исключение необязательно. Без него Android может задерживать обновления.",
-                status = if (state.permissions.ignoringBatteryOptimizations) {
-                    "Исключено из оптимизации"
-                } else {
-                    "Базовая работа доступна"
-                },
-                color = if (state.permissions.ignoringBatteryOptimizations) {
-                    StatusGreen
-                } else {
-                    StatusAmber
-                },
-                button = "Настройки батареи",
-                onClick = {
-                    context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
                 }
             )
         }
@@ -1271,31 +1306,6 @@ private fun SettingsScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
                 }
             }
         }
-        if (
-            Build.MANUFACTURER.equals("xiaomi", ignoreCase = true) ||
-            Build.MANUFACTURER.equals("redmi", ignoreCase = true) ||
-            Build.MANUFACTURER.equals("poco", ignoreCase = true)
-        ) {
-            item {
-                PermissionSettingCard(
-                    title = "Xiaomi / HyperOS",
-                    description = "Чтобы индикатор восстанавливался после очистки недавних приложений, " +
-                        "разрешите «Автозапуск» и выберите для батареи режим «Без ограничений».",
-                    status = "Проверьте системные ограничения",
-                    color = StatusAmber,
-                    button = "Настройки приложения",
-                    onClick = {
-                        context.startActivity(
-                            Intent(
-                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                Uri.parse("package:${context.packageName}")
-                            )
-                        )
-                    }
-                )
-            }
-        }
-
         item { SectionTitle("Фоновое обновление") }
         item {
             ToggleSetting(
@@ -1592,6 +1602,84 @@ private fun PermissionSettingCard(
             if (button != null) {
                 OutlinedButton(onClick = onClick) { Text(button) }
             }
+        }
+    }
+}
+
+@Composable
+private fun BackgroundReliabilityCard(
+    notificationsGranted: Boolean,
+    batteryUnrestricted: Boolean,
+    exactAlarmsGranted: Boolean,
+    isXiaomi: Boolean,
+    heartbeatAt: Long,
+    lastExit: String?,
+    events: List<String>,
+    onNotifications: () -> Unit,
+    onBattery: () -> Unit,
+    onExactAlarms: () -> Unit,
+    onXiaomiAutostart: () -> Unit,
+    onTest: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("Надёжность фоновой работы", style = MaterialTheme.typography.titleMedium)
+            SummaryLine("Уведомления", if (notificationsGranted) "Разрешены" else "Не разрешены")
+            SummaryLine(
+                "Батарея",
+                if (batteryUnrestricted) "Без оптимизации" else "Может ограничиваться"
+            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                SummaryLine(
+                    "Точные будильники",
+                    if (exactAlarmsGranted) "Разрешены" else "Нет, рестарт может задержаться"
+                )
+            }
+            if (isXiaomi) {
+                SummaryLine("Xiaomi Автозапуск", "Проверяется только вручную")
+                Text(
+                    "Включите «Автозапуск», режим батареи «Без ограничений» и закрепите " +
+                        "карточку приложения замком, чтобы Xiaomi Cleaner её не закрывал.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            SummaryLine("Heartbeat сервиса", formatTime(heartbeatAt))
+            lastExit?.let { SummaryLine("Последнее завершение", it) }
+            if (!notificationsGranted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                OutlinedButton(onClick = onNotifications) { Text("Разрешить уведомления") }
+            }
+            if (!batteryUnrestricted) {
+                OutlinedButton(onClick = onBattery) { Text("Убрать ограничение батареи") }
+            }
+            if (!exactAlarmsGranted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                OutlinedButton(onClick = onExactAlarms) { Text("Разрешить точные будильники") }
+            }
+            if (isXiaomi) {
+                OutlinedButton(onClick = onXiaomiAutostart) { Text("Открыть автозапуск Xiaomi") }
+            }
+            Button(modifier = Modifier.fillMaxWidth(), onClick = onTest) {
+                Text("Проверить восстановление")
+            }
+            if (events.isNotEmpty()) {
+                Text("Последние события", fontWeight = FontWeight.SemiBold)
+                events.forEach {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Text(
+                "После принудительной остановки Android не позволяет приложению запустить себя " +
+                    "до ручного открытия.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
