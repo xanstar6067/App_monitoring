@@ -14,9 +14,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.Rect
 import android.graphics.Typeface
-import android.graphics.drawable.Icon
 import android.net.TrafficStats
 import android.os.Build
 import android.os.IBinder
@@ -27,6 +25,7 @@ import com.adam.app_monitoring.core.model.TrafficPeriod
 import com.adam.app_monitoring.core.model.TrafficUsage
 import com.adam.app_monitoring.core.util.ByteFormatter
 import com.adam.app_monitoring.core.util.NetworkSpeedFormatter
+import com.adam.app_monitoring.core.util.SpeedIconText
 import com.adam.app_monitoring.core.util.TimeRanges
 import com.adam.app_monitoring.data.ServiceLocator
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +43,9 @@ class NetworkSpeedService : Service() {
     private val services by lazy { ServiceLocator.from(applicationContext) }
     private val notificationManager by lazy {
         getSystemService(NotificationManager::class.java)
+    }
+    private val statusBarIconRenderer by lazy {
+        StatusBarSpeedIconRenderer(applicationContext)
     }
     private var samplerJob: Job? = null
     private var totalsJob: Job? = null
@@ -152,7 +154,9 @@ class NetworkSpeedService : Service() {
             "Пер.: ${NetworkSpeedFormatter.format(txPerSecond)}"
         val totals = "Моб.: ${ByteFormatter.format(usage.mobileBytes)}   " +
             "Wi-Fi: ${ByteFormatter.format(usage.wifiBytes)}"
-        val smallIcon = Icon.createWithBitmap(createStatusIcon(totalSpeed))
+        val smallIcon = statusBarIconRenderer.create(
+            NetworkSpeedFormatter.iconText(totalSpeed).withFullUnit()
+        )
 
         return Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(smallIcon)
@@ -167,79 +171,6 @@ class NetworkSpeedService : Service() {
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .build()
-    }
-
-    private fun createStatusIcon(bytesPerSecond: Long): Bitmap {
-        val size = 96
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        val icon = NetworkSpeedFormatter.iconText(bytesPerSecond)
-        val statusUnit = when (icon.unit) {
-            "K/s" -> "KB/s"
-            "M/s" -> "MB/s"
-            "G/s" -> "GB/s"
-            else -> icon.unit
-        }
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textAlign = Paint.Align.LEFT
-            typeface = Typeface.create(
-                Typeface.create("sans-serif-condensed", Typeface.NORMAL),
-                900,
-                false
-            )
-        }
-
-        drawTextFitted(
-            canvas = canvas,
-            text = icon.value,
-            paint = paint,
-            left = 1f,
-            top = 0f,
-            right = size - 1f,
-            bottom = 72f
-        )
-
-        paint.typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
-        drawTextFitted(
-            canvas = canvas,
-            text = statusUnit,
-            paint = paint,
-            left = 2f,
-            top = 68f,
-            right = size - 2f,
-            bottom = size.toFloat()
-        )
-        return bitmap
-    }
-
-    private fun drawTextFitted(
-        canvas: Canvas,
-        text: String,
-        paint: Paint,
-        left: Float,
-        top: Float,
-        right: Float,
-        bottom: Float
-    ) {
-        val availableWidth = right - left
-        val availableHeight = bottom - top
-
-        paint.textSize = availableHeight
-        val bounds = Rect()
-        paint.getTextBounds(text, 0, text.length, bounds)
-        if (bounds.width() == 0 || bounds.height() == 0) return
-
-        val scale = minOf(
-            availableWidth / bounds.width(),
-            availableHeight / bounds.height()
-        )
-        paint.textSize *= scale
-        paint.getTextBounds(text, 0, text.length, bounds)
-
-        val x = (left + right - bounds.left - bounds.right) / 2f
-        val baseline = (top + bottom - bounds.top - bounds.bottom) / 2f
-        canvas.drawText(text, x, baseline, paint)
     }
 
     private fun createLargeIcon(bytesPerSecond: Long): Bitmap {
@@ -295,6 +226,15 @@ class NetworkSpeedService : Service() {
         if (current < previous) return 0
         return ((current - previous) * 1000L / elapsedMs).coerceAtLeast(0)
     }
+
+    private fun SpeedIconText.withFullUnit() = copy(
+        unit = when (unit) {
+            "K/s" -> "KB/s"
+            "M/s" -> "MB/s"
+            "G/s" -> "GB/s"
+            else -> unit
+        }
+    )
 
     companion object {
         private const val CHANNEL_ID = "network_speed"
