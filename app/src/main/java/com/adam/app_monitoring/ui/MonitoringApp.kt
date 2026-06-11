@@ -436,6 +436,7 @@ private fun StatusScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
                             OutlinedButton(
                                 onClick = {
                                     val permissions = buildList {
+                                        add(Manifest.permission.ACCESS_COARSE_LOCATION)
                                         add(Manifest.permission.ACCESS_FINE_LOCATION)
                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                             add(Manifest.permission.NEARBY_WIFI_DEVICES)
@@ -1817,7 +1818,7 @@ private fun wifiBand(frequencyMhz: Int?): String = when (frequencyMhz) {
 }
 
 private fun signalText(dbm: Int?, level: Int?): String {
-    if (dbm == null && level == null) return "Нет данных"
+    if (dbm == null && level == null) return "Недоступно"
     val quality = when (level) {
         4 -> "отличный"
         3 -> "хороший"

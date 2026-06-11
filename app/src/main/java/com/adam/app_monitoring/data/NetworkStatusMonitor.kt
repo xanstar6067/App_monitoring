@@ -9,7 +9,7 @@ import android.net.NetworkCapabilities
 import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.Build
-import android.telephony.CellSignalStrength
+import android.telephony.SignalStrength
 import android.telephony.TelephonyManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +52,11 @@ data class NetworkStatus(
     val updatedAt: Long = 0L
 )
 
+private data class SignalReading(
+    val dbm: Int?,
+    val level: Int?
+)
+
 class NetworkStatusMonitor(context: Context) {
     private val appContext = context.applicationContext
     private val connectivity =
@@ -71,7 +76,8 @@ class NetworkStatusMonitor(context: Context) {
         if (monitorJob?.isActive == true) return
         monitorJob = scope.launch(Dispatchers.IO) {
             while (isActive) {
-                val snapshot = readStatus()
+                val snapshot = safelyRead { readStatus() }
+                    ?: NetworkStatus(updatedAt = System.currentTimeMillis())
                 val activeExternalIp = externalIp.takeIf {
                     snapshot.connected && connectivity.activeNetwork == externalIpNetwork
                 }
@@ -111,12 +117,12 @@ class NetworkStatusMonitor(context: Context) {
             ?: activeNetwork?.let(connectivity::getLinkProperties)
         val connection = connectionType(capabilities)
         val wifiInfo = if (connection == ActiveConnection.WIFI) {
-            readWifiInfo(capabilities)
+            safelyRead { readWifiInfo(capabilities) }
         } else {
             null
         }
         val cellSignal = if (connection == ActiveConnection.MOBILE) {
-            readMobileSignal()
+            safelyRead { readMobileSignal() }
         } else {
             null
         }
@@ -138,9 +144,8 @@ class NetworkStatusMonitor(context: Context) {
             wifiSignalLevel = wifiInfo?.rssi
                 ?.takeIf { it in MIN_VALID_DBM..MAX_VALID_DBM }
                 ?.let { WifiManager.calculateSignalLevel(it, SIGNAL_LEVELS) },
-            mobileSignalDbm = cellSignal?.dbm
-                ?.takeIf { it in MIN_VALID_DBM..MAX_VALID_DBM },
-            mobileSignalLevel = cellSignal?.level?.takeIf { it in 0..4 },
+            mobileSignalDbm = cellSignal?.dbm,
+            mobileSignalLevel = cellSignal?.level,
             updatedAt = System.currentTimeMillis()
         )
     }
@@ -186,14 +191,58 @@ class NetworkStatusMonitor(context: Context) {
         }
 
     @SuppressLint("MissingPermission")
-    private fun readMobileSignal(): CellSignalStrength? =
+    private fun readMobileSignal(): SignalReading? {
+        val signalStrength = telephony.signalStrength ?: return null
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            signalStrength.cellSignalStrengths
+                .maxByOrNull { it.level }
+                ?.let { signal ->
+                    SignalReading(
+                        dbm = signal.dbm.takeIf(::isValidDbm),
+                        level = signal.level.takeIf(::isValidSignalLevel)
+                    )
+                }
+                ?: signalStrength.toLevelOnlyReading()
+        } else {
+            signalStrength.toLegacySignalReading()
+        }
+    }
+
+    private fun SignalStrength.toLevelOnlyReading() = SignalReading(
+        dbm = null,
+        level = level.takeIf(::isValidSignalLevel)
+    )
+
+    @Suppress("DEPRECATION")
+    private fun SignalStrength.toLegacySignalReading(): SignalReading {
+        val gsmDbm = gsmSignalStrength
+            .takeIf { it in MIN_GSM_ASU..MAX_GSM_ASU }
+            ?.let { GSM_DBM_OFFSET + GSM_DBM_MULTIPLIER * it }
+        val cdmaDbm = listOf(cdmaDbm, evdoDbm)
+            .filter(::isValidDbm)
+            .maxOrNull()
+
+        return SignalReading(
+            dbm = gsmDbm ?: cdmaDbm,
+            level = level.takeIf(::isValidSignalLevel)
+        )
+    }
+
+    private fun isValidDbm(dbm: Int) = dbm in MIN_VALID_DBM..MAX_VALID_DBM
+
+    private fun isValidSignalLevel(level: Int) = level in 0..4
+
+    private inline fun <T> safelyRead(block: () -> T): T? =
         try {
-            telephony.signalStrength
-                ?.cellSignalStrengths
-                ?.maxByOrNull { it.level }
+            block()
         } catch (_: SecurityException) {
             null
         } catch (_: UnsupportedOperationException) {
+            null
+        } catch (_: LinkageError) {
+            // Some vendor Android builds expose framework APIs inconsistently.
+            null
+        } catch (_: RuntimeException) {
             null
         }
 
@@ -260,6 +309,10 @@ class NetworkStatusMonitor(context: Context) {
         const val SIGNAL_LEVELS = 5
         const val MIN_VALID_DBM = -200
         const val MAX_VALID_DBM = 0
+        const val MIN_GSM_ASU = 0
+        const val MAX_GSM_ASU = 31
+        const val GSM_DBM_OFFSET = -113
+        const val GSM_DBM_MULTIPLIER = 2
         const val REDACTED_MAC = "02:00:00:00:00:00"
         const val EXTERNAL_IP_URL = "https://api.ipify.org"
     }
