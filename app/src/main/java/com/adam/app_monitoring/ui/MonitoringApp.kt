@@ -1627,19 +1627,22 @@ private fun BackgroundReliabilityCard(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text("Надёжность фоновой работы", style = MaterialTheme.typography.titleMedium)
-            SummaryLine("Уведомления", if (notificationsGranted) "Разрешены" else "Не разрешены")
-            SummaryLine(
+            ReliabilityStatus(
+                "Уведомления",
+                if (notificationsGranted) "Разрешены" else "Не разрешены"
+            )
+            ReliabilityStatus(
                 "Батарея",
                 if (batteryUnrestricted) "Без оптимизации" else "Может ограничиваться"
             )
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                SummaryLine(
+                ReliabilityStatus(
                     "Точные будильники",
                     if (exactAlarmsGranted) "Разрешены" else "Нет, рестарт может задержаться"
                 )
             }
             if (isXiaomi) {
-                SummaryLine("Xiaomi Автозапуск", "Проверяется только вручную")
+                ReliabilityStatus("Автозапуск Xiaomi", "Проверяется только вручную")
                 Text(
                     "Включите «Автозапуск», режим батареи «Без ограничений» и закрепите " +
                         "карточку приложения замком, чтобы Xiaomi Cleaner её не закрывал.",
@@ -1647,8 +1650,8 @@ private fun BackgroundReliabilityCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            SummaryLine("Heartbeat сервиса", formatTime(heartbeatAt))
-            lastExit?.let { SummaryLine("Последнее завершение", it) }
+            ReliabilityStatus("Heartbeat сервиса", formatTime(heartbeatAt))
+            lastExit?.let { ReliabilityStatus("Последнее завершение", it) }
             if (!notificationsGranted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 OutlinedButton(onClick = onNotifications) { Text("Разрешить уведомления") }
             }
@@ -1681,6 +1684,26 @@ private fun BackgroundReliabilityCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+@Composable
+private fun ReliabilityStatus(title: String, value: String) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 
