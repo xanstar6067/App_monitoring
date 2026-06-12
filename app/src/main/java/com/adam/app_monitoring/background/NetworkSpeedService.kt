@@ -24,6 +24,8 @@ import com.adam.app_monitoring.core.util.NetworkSpeedFormatter
 import com.adam.app_monitoring.core.util.SpeedIconText
 import com.adam.app_monitoring.core.util.TimeRanges
 import com.adam.app_monitoring.data.ServiceLocator
+import com.adam.app_monitoring.data.NetworkSpeedSnapshotStore
+import com.adam.app_monitoring.widget.TrafficWidgetProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -46,6 +48,7 @@ class NetworkSpeedService : Service() {
     private var samplerJob: Job? = null
     private var totalsJob: Job? = null
     private var heartbeatJob: Job? = null
+    private var lastWidgetUpdateAt = 0L
     @Volatile
     private var todayUsage = TrafficUsage()
 
@@ -115,6 +118,15 @@ class NetworkSpeedService : Service() {
                 previousRx = currentRx
                 previousTx = currentTx
                 previousAt = currentAt
+                if (currentAt - lastWidgetUpdateAt >= WIDGET_SPEED_UPDATE_INTERVAL_MS) {
+                    lastWidgetUpdateAt = currentAt
+                    NetworkSpeedSnapshotStore.write(
+                        context = this@NetworkSpeedService,
+                        downloadBytesPerSecond = rxPerSecond,
+                        uploadBytesPerSecond = txPerSecond
+                    )
+                    TrafficWidgetProvider.updateSpeedWidgets(this@NetworkSpeedService)
+                }
                 notificationManager.notify(
                     NOTIFICATION_ID,
                     buildNotification(rxPerSecond, txPerSecond, todayUsage)
@@ -258,6 +270,7 @@ class NetworkSpeedService : Service() {
         private const val SAMPLE_INTERVAL_MS = 1_000L
         private const val TOTALS_REFRESH_INTERVAL_MS = 60_000L
         private const val HEARTBEAT_INTERVAL_MS = 30_000L
+        private const val WIDGET_SPEED_UPDATE_INTERVAL_MS = 5_000L
         const val EXTRA_START_SOURCE = "start_source"
 
     }

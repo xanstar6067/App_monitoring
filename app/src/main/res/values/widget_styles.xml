@@ -6,9 +6,9 @@
         <item name="android:layout_weight">1</item>
         <item name="android:gravity">center</item>
         <item name="android:orientation">vertical</item>
-        <item name="android:paddingStart">4dp</item>
+        <item name="android:paddingStart">1dp</item>
         <item name="android:paddingTop">2dp</item>
-        <item name="android:paddingEnd">4dp</item>
+        <item name="android:paddingEnd">1dp</item>
         <item name="android:paddingBottom">2dp</item>
     </style>
 
@@ -26,9 +26,84 @@
         <item name="android:fontFamily">sans-serif-medium</item>
         <item name="android:gravity">center</item>
         <item name="android:includeFontPadding">false</item>
-        <item name="android:layout_marginTop">4dp</item>
+        <item name="android:layout_marginTop">2dp</item>
         <item name="android:maxLines">1</item>
         <item name="android:textColor">@color/widget_text_secondary</item>
+        <item name="android:textSize">10sp</item>
+    </style>
+
+    <style name="WidgetLabel">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">@color/widget_text_secondary</item>
+        <item name="android:textSize">8sp</item>
+    </style>
+
+    <style name="WidgetValue">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">@color/widget_text_primary</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="WidgetMeta">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">@color/widget_text_secondary</item>
+        <item name="android:textSize">8sp</item>
+    </style>
+
+    <style name="WidgetLargeAppIcon">
+        <item name="android:layout_width">20dp</item>
+        <item name="android:layout_height">20dp</item>
+        <item name="android:contentDescription">@null</item>
+        <item name="android:scaleType">fitCenter</item>
+    </style>
+
+    <style name="WidgetLargeAppName">
+        <item name="android:layout_width">72dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginStart">7dp</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">@color/widget_text_primary</item>
         <item name="android:textSize">9sp</item>
+    </style>
+
+    <style name="WidgetLargeAppProgress">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">4dp</item>
+        <item name="android:layout_marginStart">7dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:indeterminate">false</item>
+        <item name="android:max">1000</item>
+        <item name="android:progressDrawable">@drawable/widget_progress</item>
+    </style>
+
+    <style name="WidgetLargeAppUsage">
+        <item name="android:layout_width">58dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginStart">7dp</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:gravity">end</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">@color/widget_text_secondary</item>
+        <item name="android:textSize">8sp</item>
     </style>
 </resources>

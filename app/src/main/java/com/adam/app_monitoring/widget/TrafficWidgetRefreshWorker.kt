@@ -16,7 +16,8 @@ class TrafficWidgetRefreshWorker(
         return try {
             val services = ServiceLocator.from(applicationContext)
             services.repository.refreshSelected(
-                period = TrafficPeriod.TODAY
+                period = TrafficPeriod.MONTH,
+                includeCharts = TrafficWidgetProvider.hasChartWidgets(applicationContext)
             )
             TrafficBalanceStore.refresh(services)
             TrafficWidgetProvider.updateAll(applicationContext)

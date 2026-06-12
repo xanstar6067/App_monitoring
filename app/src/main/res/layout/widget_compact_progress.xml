@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:paddingStart="13dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="9dp"
+    android:paddingBottom="8dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingEnd="23dp"
+        android:gravity="center_vertical"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/compact_progress_period"
+            style="@style/WidgetLabel"
+            android:text="МОБИЛЬНЫЙ ТРАФИК · 1–12 ИЮНЯ" />
+
+        <TextView
+            android:id="@+id/compact_progress_mobile_used"
+            style="@style/WidgetValue"
+            android:text="8,4 ГБ"
+            android:textColor="@color/widget_blue"
+            android:textSize="19sp" />
+
+        <ProgressBar
+            android:id="@+id/compact_progress_bar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="5dp"
+            android:layout_marginTop="3dp"
+            android:indeterminate="false"
+            android:max="1000"
+            android:progress="650"
+            android:progressDrawable="@drawable/widget_progress" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:orientation="horizontal">
+            <TextView
+                android:id="@+id/compact_progress_balance"
+                style="@style/WidgetMeta"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:text="Моб. осталось 1,6 ГБ"
+                android:textColor="@color/widget_accent" />
+            <TextView
+                android:id="@+id/compact_progress_total"
+                style="@style/WidgetMeta"
+                android:text="Всего 18,2 ГБ" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/widget_refresh"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_gravity="top|end"
+        android:background="@drawable/widget_refresh_background"
+        android:contentDescription="@string/widget_refresh"
+        android:padding="6dp"
+        android:src="@drawable/ic_widget_refresh"
+        android:tint="@color/widget_accent" />
+</FrameLayout>

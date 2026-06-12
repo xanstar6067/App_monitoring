@@ -41,7 +41,8 @@ class TrafficRepository(
 
     suspend fun refreshSelected(
         period: TrafficPeriod,
-        forceAppScan: Boolean = false
+        forceAppScan: Boolean = false,
+        includeCharts: Boolean = true
     ): TrafficSnapshot = withContext(Dispatchers.IO) {
         withTimeout(USER_REFRESH_TIMEOUT_MS) {
             refreshMutex.withLock {
@@ -53,7 +54,7 @@ class TrafficRepository(
                     startMillis = todayRange.startMillis,
                     endMillis = todayRange.endMillis,
                     period = TrafficPeriod.TODAY,
-                    includeChart = period == TrafficPeriod.TODAY
+                    includeChart = includeCharts
                 )
                 val todayRows = buildRows(apps, todayStats.byUid, now)
                 database.saveDaily(TimeRanges.todayKey(now), todayRows, now)
@@ -61,7 +62,7 @@ class TrafficRepository(
                     periodStart = todayRange.startMillis,
                     periodEnd = todayRange.endMillis,
                     rows = todayRows,
-                    chart = if (period == TrafficPeriod.TODAY) todayStats.chart else null,
+                    chart = todayStats.chart.takeIf { includeCharts },
                     calculatedAt = now
                 )
 
@@ -71,7 +72,7 @@ class TrafficRepository(
                         startMillis = monthRange.startMillis,
                         endMillis = monthRange.endMillis,
                         period = TrafficPeriod.MONTH,
-                        includeChart = true
+                        includeChart = includeCharts
                     )
                     val todayUsage = todayStats.byUid.values.fold(TrafficUsage()) {
                             total,
@@ -87,13 +88,17 @@ class TrafficRepository(
                         periodStart = monthRange.startMillis,
                         periodEnd = monthRange.endMillis,
                         rows = buildRows(apps, monthStats.byUid, now),
-                        chart = ChartBuckets.reconcileLatestPoint(
-                            points = monthStats.chart,
-                            wifiTotalBytes = monthUsage.wifiBytes,
-                            mobileTotalBytes = monthUsage.mobileBytes,
-                            latestWifiBytes = todayUsage.wifiBytes,
-                            latestMobileBytes = todayUsage.mobileBytes
-                        ),
+                        chart = if (includeCharts) {
+                            ChartBuckets.reconcileLatestPoint(
+                                points = monthStats.chart,
+                                wifiTotalBytes = monthUsage.wifiBytes,
+                                mobileTotalBytes = monthUsage.mobileBytes,
+                                latestWifiBytes = todayUsage.wifiBytes,
+                                latestMobileBytes = todayUsage.mobileBytes
+                            )
+                        } else {
+                            null
+                        },
                         calculatedAt = now
                     )
                 }

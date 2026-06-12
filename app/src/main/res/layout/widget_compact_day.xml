@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:paddingStart="13dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="9dp"
+    android:paddingBottom="8dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingEnd="24dp"
+        android:gravity="center_vertical"
+        android:orientation="vertical">
+
+        <TextView
+            style="@style/WidgetLabel"
+            android:text="@string/widget_today_total_label" />
+
+        <TextView
+            android:id="@+id/compact_day_total"
+            style="@style/WidgetValue"
+            android:text="2,74 ГБ"
+            android:textColor="@color/widget_accent"
+            android:textSize="22sp" />
+
+        <TextView
+            android:id="@+id/compact_day_split"
+            style="@style/WidgetMeta"
+            android:layout_marginTop="1dp"
+            android:text="Моб. 620 МБ · Wi‑Fi 2,12 ГБ" />
+
+        <TextView
+            android:id="@+id/compact_day_mobile_balance"
+            style="@style/WidgetMeta"
+            android:layout_marginTop="2dp"
+            android:text="Моб. месяц 8,4 ГБ · осталось 1,6 ГБ"
+            android:textColor="@color/widget_accent" />
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/widget_refresh"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_gravity="top|end"
+        android:background="@drawable/widget_refresh_background"
+        android:contentDescription="@string/widget_refresh"
+        android:padding="6dp"
+        android:src="@drawable/ic_widget_refresh"
+        android:tint="@color/widget_accent" />
+</FrameLayout>

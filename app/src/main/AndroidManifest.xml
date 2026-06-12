@@ -81,6 +81,90 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/traffic_widget_info" />
         </receiver>
+
+        <receiver
+            android:name=".widget.CompactDayWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_compact_day_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_compact_day_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.CompactSummaryWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_compact_summary_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_compact_summary_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.CompactProgressWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_compact_progress_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_compact_progress_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.CompactSpeedWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_compact_speed_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_compact_speed_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.LargeWeekWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_large_week_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_large_week_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.LargeHourlyWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_large_hourly_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_large_hourly_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.LargeMonthWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_large_month_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_large_month_info" />
+        </receiver>
     </application>
 
 </manifest>

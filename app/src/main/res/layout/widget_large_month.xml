@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:paddingStart="14dp"
+    android:paddingTop="9dp"
+    android:paddingEnd="10dp"
+    android:paddingBottom="8dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingEnd="26dp"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="top"
+            android:orientation="horizontal">
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/large_month_period_label"
+                    style="@style/WidgetLabel"
+                    android:text="ИЮНЬ 2026" />
+                <TextView
+                    android:id="@+id/large_month_total"
+                    style="@style/WidgetValue"
+                    android:text="18,2 ГБ"
+                    android:textSize="20sp" />
+                <TextView
+                    android:id="@+id/large_month_today"
+                    style="@style/WidgetMeta"
+                    android:text="+2,74 ГБ сегодня"
+                    android:textColor="@color/widget_accent" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="end"
+                android:orientation="vertical">
+                <TextView
+                    style="@style/WidgetLabel"
+                    android:layout_gravity="end"
+                    android:text="@string/widget_mobile_spent" />
+                <TextView
+                    android:id="@+id/large_month_mobile"
+                    style="@style/WidgetValue"
+                    android:layout_gravity="end"
+                    android:text="8,4 ГБ"
+                    android:textColor="@color/widget_blue"
+                    android:textSize="18sp" />
+                <TextView
+                    android:id="@+id/large_month_remaining"
+                    style="@style/WidgetMeta"
+                    android:layout_gravity="end"
+                    android:text="Моб. осталось 1,6 ГБ"
+                    android:textColor="@color/widget_accent" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <ProgressBar
+            android:id="@+id/large_month_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="6dp"
+            android:layout_marginTop="4dp"
+            android:indeterminate="false"
+            android:max="1000"
+            android:progress="650"
+            android:progressDrawable="@drawable/widget_progress" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:orientation="horizontal">
+            <TextView
+                android:id="@+id/large_month_progress_caption"
+                style="@style/WidgetMeta"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:text="Тариф использован на 65%" />
+            <TextView
+                android:id="@+id/large_month_wifi"
+                style="@style/WidgetMeta"
+                android:text="Wi‑Fi за период 9,8 ГБ"
+                android:textColor="@color/widget_blue" />
+        </LinearLayout>
+
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="3dp"
+            android:layout_marginBottom="2dp"
+            android:background="@drawable/widget_divider_horizontal"
+            android:contentDescription="@null" />
+
+        <LinearLayout
+            android:id="@+id/widget_large_app_1"
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <ImageView android:id="@+id/widget_large_app_1_icon" style="@style/WidgetLargeAppIcon" />
+            <TextView android:id="@+id/widget_large_app_1_name" style="@style/WidgetLargeAppName" android:text="Instagram" />
+            <ProgressBar android:id="@+id/widget_large_app_1_progress" style="@style/WidgetLargeAppProgress" android:progress="1000" />
+            <TextView android:id="@+id/widget_large_app_1_usage" style="@style/WidgetLargeAppUsage" android:text="4,92 ГБ" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_large_app_2"
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <ImageView android:id="@+id/widget_large_app_2_icon" style="@style/WidgetLargeAppIcon" />
+            <TextView android:id="@+id/widget_large_app_2_name" style="@style/WidgetLargeAppName" android:text="Spotify" />
+            <ProgressBar android:id="@+id/widget_large_app_2_progress" style="@style/WidgetLargeAppProgress" android:progress="650" />
+            <TextView android:id="@+id/widget_large_app_2_usage" style="@style/WidgetLargeAppUsage" android:text="3,22 ГБ" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_large_app_3"
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <ImageView android:id="@+id/widget_large_app_3_icon" style="@style/WidgetLargeAppIcon" />
+            <TextView android:id="@+id/widget_large_app_3_name" style="@style/WidgetLargeAppName" android:text="Telegram" />
+            <ProgressBar android:id="@+id/widget_large_app_3_progress" style="@style/WidgetLargeAppProgress" android:progress="440" />
+            <TextView android:id="@+id/widget_large_app_3_usage" style="@style/WidgetLargeAppUsage" android:text="2,15 ГБ" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_large_app_4"
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <ImageView android:id="@+id/widget_large_app_4_icon" style="@style/WidgetLargeAppIcon" />
+            <TextView android:id="@+id/widget_large_app_4_name" style="@style/WidgetLargeAppName" android:text="YouTube" />
+            <ProgressBar android:id="@+id/widget_large_app_4_progress" style="@style/WidgetLargeAppProgress" android:progress="340" />
+            <TextView android:id="@+id/widget_large_app_4_usage" style="@style/WidgetLargeAppUsage" android:text="1,68 ГБ" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/widget_refresh"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_gravity="top|end"
+        android:background="@drawable/widget_refresh_background"
+        android:contentDescription="@string/widget_refresh"
+        android:padding="7dp"
+        android:src="@drawable/ic_widget_refresh"
+        android:tint="@color/widget_accent" />
+</FrameLayout>

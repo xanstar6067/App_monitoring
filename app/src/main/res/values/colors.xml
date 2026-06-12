@@ -6,4 +6,8 @@
     <color name="widget_text_secondary">#FFB6C1D6</color>
     <color name="widget_accent">#FF68E0C1</color>
     <color name="widget_accent_surface">#2468E0C1</color>
+    <color name="widget_blue">#FF6FA8F7</color>
+    <color name="widget_gold">#FFF5C13D</color>
+    <color name="widget_divider">#1FFFFFFF</color>
+    <color name="widget_progress_track">#18FFFFFF</color>
 </resources>
