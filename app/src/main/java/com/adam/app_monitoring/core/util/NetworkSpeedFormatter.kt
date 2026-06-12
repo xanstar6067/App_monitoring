@@ -40,7 +40,14 @@ object NetworkSpeedFormatter {
         val text = when {
             value >= 100 -> value.toLong().coerceAtMost(999).toString()
             value >= 10 -> String.format(Locale.US, "%.0f", value)
-            value >= 1 -> String.format(Locale.US, "%.1f", value)
+            value >= 1 -> {
+                val decimalText = String.format(Locale.US, "%.1f", value)
+                if (decimalText.length <= 3) {
+                    decimalText
+                } else {
+                    String.format(Locale.US, "%.0f", value)
+                }
+            }
             else -> "0"
         }
         return SpeedIconText(text, unit)

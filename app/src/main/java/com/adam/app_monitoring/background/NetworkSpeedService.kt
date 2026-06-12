@@ -176,8 +176,9 @@ class NetworkSpeedService : Service() {
             "Пер.: ${NetworkSpeedFormatter.format(txPerSecond)}"
         val totals = "Моб.: ${ByteFormatter.format(usage.mobileBytes)}   " +
             "Wi-Fi: ${ByteFormatter.format(usage.wifiBytes)}"
+        val statusBarSpeed = maxOf(rxPerSecond, txPerSecond)
         val smallIcon = statusBarIconRenderer.create(
-            NetworkSpeedFormatter.iconText(rxPerSecond).withFullUnit()
+            NetworkSpeedFormatter.iconText(statusBarSpeed).withFullUnit()
         )
 
         return Notification.Builder(this, CHANNEL_ID)

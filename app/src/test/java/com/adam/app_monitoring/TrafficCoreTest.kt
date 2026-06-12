@@ -351,5 +351,8 @@ class TrafficCoreTest {
         assertTrue(NetworkSpeedFormatter.format(1536).endsWith("КБ/с"))
         assertEquals("1.5", NetworkSpeedFormatter.iconText(1536).value)
         assertEquals("K/s", NetworkSpeedFormatter.iconText(1536).unit)
+        assertEquals("9.9", NetworkSpeedFormatter.iconText(10_137).value)
+        assertEquals("10", NetworkSpeedFormatter.iconText(10_199).value)
+        assertEquals("10", NetworkSpeedFormatter.iconText(10_240).value)
     }
 }
