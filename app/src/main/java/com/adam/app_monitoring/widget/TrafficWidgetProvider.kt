@@ -8,11 +8,14 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
+import android.util.Log
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.adam.app_monitoring.MainActivity
 import com.adam.app_monitoring.data.ServiceLocator
+
+private const val LOG_TAG = "TrafficWidget"
 
 class TrafficWidgetProvider : BaseTrafficWidgetProvider(WidgetVariant.WIDE_CURRENT) {
     companion object {
@@ -20,14 +23,16 @@ class TrafficWidgetProvider : BaseTrafficWidgetProvider(WidgetVariant.WIDE_CURRE
             "com.adam.app_monitoring.widget.action.REFRESH"
         internal const val ACTION_PERIODIC_REFRESH =
             "com.adam.app_monitoring.widget.action.PERIODIC_REFRESH"
+        internal const val ACTION_REFRESH_VISUAL_TIMEOUT =
+            "com.adam.app_monitoring.widget.action.REFRESH_VISUAL_TIMEOUT"
 
         fun updateAll(context: Context) = TrafficWidgetCoordinator.updateAll(context)
 
         fun updateSpeedWidgets(context: Context) =
             TrafficWidgetCoordinator.updateSpeedWidgets(context)
 
-        fun hasChartWidgets(context: Context): Boolean =
-            TrafficWidgetCoordinator.hasChartWidgets(context)
+        fun hasSpeedWidgets(context: Context): Boolean =
+            TrafficWidgetCoordinator.hasSpeedWidgets(context)
 
         fun ensurePeriodicRefreshIfActive(context: Context) =
             TrafficWidgetCoordinator.ensurePeriodicRefreshIfActive(context)
@@ -43,11 +48,14 @@ class TrafficWidgetProvider : BaseTrafficWidgetProvider(WidgetVariant.WIDE_CURRE
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-        internal fun refreshPendingIntent(context: Context): PendingIntent =
+        internal fun refreshPendingIntent(
+            context: Context,
+            providerClass: Class<out AppWidgetProvider>
+        ): PendingIntent =
             PendingIntent.getBroadcast(
                 context,
                 1,
-                Intent(context, TrafficWidgetProvider::class.java).setAction(ACTION_REFRESH),
+                Intent(context, providerClass).setAction(ACTION_REFRESH),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
     }
@@ -105,10 +113,14 @@ abstract class BaseTrafficWidgetProvider(
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         when (intent.action) {
-            TrafficWidgetProvider.ACTION_REFRESH ->
+            TrafficWidgetProvider.ACTION_REFRESH -> {
+                Log.i(LOG_TAG, "Refresh click received by ${javaClass.simpleName}")
                 TrafficWidgetCoordinator.refreshNow(context)
+            }
             TrafficWidgetProvider.ACTION_PERIODIC_REFRESH ->
                 TrafficWidgetCoordinator.enqueueRefresh(context)
+            TrafficWidgetProvider.ACTION_REFRESH_VISUAL_TIMEOUT ->
+                TrafficWidgetCoordinator.updateAll(context)
         }
     }
 }
@@ -130,7 +142,8 @@ private data class WidgetProviderSpec(
 )
 
 internal object TrafficWidgetCoordinator {
-    private const val WIDGET_REFRESH_WORK_NAME = "traffic_widget_refresh"
+    private const val WIDGET_REFRESH_WORK_NAME = "traffic_widget_refresh_v2"
+    private const val LEGACY_WIDGET_REFRESH_WORK_NAME = "traffic_widget_refresh"
 
     private val providers = listOf(
         WidgetProviderSpec(TrafficWidgetProvider::class.java, WidgetVariant.WIDE_CURRENT),
@@ -150,6 +163,7 @@ internal object TrafficWidgetCoordinator {
     )
 
     fun onWidgetEnabled(context: Context) {
+        cancelLegacyRefresh(context)
         schedulePeriodicRefresh(context)
         enqueueRefresh(context)
     }
@@ -158,6 +172,7 @@ internal object TrafficWidgetCoordinator {
         if (hasActiveWidgets(context)) return
         cancelPeriodicRefresh(context)
         WorkManager.getInstance(context).cancelUniqueWork(WIDGET_REFRESH_WORK_NAME)
+        WorkManager.getInstance(context).cancelUniqueWork(LEGACY_WIDGET_REFRESH_WORK_NAME)
     }
 
     fun updateAll(context: Context) {
@@ -183,6 +198,8 @@ internal object TrafficWidgetCoordinator {
                 )
             }
         }
+        scheduleRefreshVisualTimeout(context)
+        cancelLegacyRefresh(context)
         enqueueRefresh(context)
     }
 
@@ -200,11 +217,10 @@ internal object TrafficWidgetCoordinator {
         )
     }
 
-    fun hasChartWidgets(context: Context): Boolean {
+    fun hasSpeedWidgets(context: Context): Boolean {
         val manager = AppWidgetManager.getInstance(context)
-        return providers.any { spec ->
-            spec.variant in chartVariants && idsFor(context, manager, spec).isNotEmpty()
-        }
+        val spec = providers.first { it.variant == WidgetVariant.COMPACT_SPEED }
+        return idsFor(context, manager, spec).isNotEmpty()
     }
 
     fun render(
@@ -223,14 +239,20 @@ internal object TrafficWidgetCoordinator {
     }
 
     fun enqueueRefresh(context: Context) {
+        Log.i(LOG_TAG, "Enqueue widget refresh work")
         val request = OneTimeWorkRequestBuilder<TrafficWidgetRefreshWorker>()
             .addTag(WIDGET_REFRESH_WORK_NAME)
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(
             WIDGET_REFRESH_WORK_NAME,
-            ExistingWorkPolicy.KEEP,
+            ExistingWorkPolicy.REPLACE,
             request
         )
+    }
+
+    private fun cancelLegacyRefresh(context: Context) {
+        WorkManager.getInstance(context)
+            .cancelUniqueWork(LEGACY_WIDGET_REFRESH_WORK_NAME)
     }
 
     fun ensurePeriodicRefreshIfActive(context: Context) {
@@ -263,6 +285,23 @@ internal object TrafficWidgetCoordinator {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+    private fun visualTimeoutPendingIntent(context: Context): PendingIntent =
+        PendingIntent.getBroadcast(
+            context,
+            3,
+            Intent(context, TrafficWidgetProvider::class.java)
+                .setAction(TrafficWidgetProvider.ACTION_REFRESH_VISUAL_TIMEOUT),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+    private fun scheduleRefreshVisualTimeout(context: Context) {
+        context.getSystemService(AlarmManager::class.java).set(
+            AlarmManager.ELAPSED_REALTIME,
+            SystemClock.elapsedRealtime() + REFRESH_VISUAL_TIMEOUT_MS,
+            visualTimeoutPendingIntent(context)
+        )
+    }
+
     private fun schedulePeriodicRefresh(context: Context) {
         val intervalMillis = ServiceLocator.from(context)
             .settings
@@ -282,8 +321,5 @@ internal object TrafficWidgetCoordinator {
             .cancel(periodicPendingIntent(context))
     }
 
-    private val chartVariants = setOf(
-        WidgetVariant.LARGE_WEEK,
-        WidgetVariant.LARGE_HOURLY
-    )
+    private const val REFRESH_VISUAL_TIMEOUT_MS = 30_000L
 }

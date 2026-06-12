@@ -118,7 +118,10 @@ class NetworkSpeedService : Service() {
                 previousRx = currentRx
                 previousTx = currentTx
                 previousAt = currentAt
-                if (currentAt - lastWidgetUpdateAt >= WIDGET_SPEED_UPDATE_INTERVAL_MS) {
+                if (
+                    currentAt - lastWidgetUpdateAt >= WIDGET_SPEED_UPDATE_INTERVAL_MS &&
+                    TrafficWidgetProvider.hasSpeedWidgets(this@NetworkSpeedService)
+                ) {
                     lastWidgetUpdateAt = currentAt
                     NetworkSpeedSnapshotStore.write(
                         context = this@NetworkSpeedService,

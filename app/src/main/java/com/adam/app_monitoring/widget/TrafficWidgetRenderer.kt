@@ -36,7 +36,6 @@ internal object TrafficWidgetRenderer {
             "setColorFilter",
             context.getColor(R.color.widget_gold)
         )
-        setBoolean(R.id.widget_refresh, "setEnabled", false)
         setContentDescription(
             R.id.widget_refresh,
             context.getString(R.string.widget_refreshing)
@@ -46,7 +45,7 @@ internal object TrafficWidgetRenderer {
     private fun renderWideCurrent(
         context: Context,
         data: WidgetTrafficData
-    ): RemoteViews = baseViews(context, R.layout.widget_traffic).apply {
+    ): RemoteViews = baseViews(context, R.layout.widget_traffic, WidgetVariant.WIDE_CURRENT).apply {
         setTextViewText(
             R.id.widget_period_label,
             context.getString(R.string.widget_today_total_label)
@@ -81,7 +80,7 @@ internal object TrafficWidgetRenderer {
     private fun renderCompactDay(
         context: Context,
         data: WidgetTrafficData
-    ): RemoteViews = baseViews(context, R.layout.widget_compact_day).apply {
+    ): RemoteViews = baseViews(context, R.layout.widget_compact_day, WidgetVariant.COMPACT_DAY).apply {
         setTextViewText(
             R.id.compact_day_total,
             bytesOrNoData(context, data, data.today.totalBytes, data.hasTodayData)
@@ -107,7 +106,11 @@ internal object TrafficWidgetRenderer {
     private fun renderCompactSummary(
         context: Context,
         data: WidgetTrafficData
-    ): RemoteViews = baseViews(context, R.layout.widget_compact_summary).apply {
+    ): RemoteViews = baseViews(
+        context,
+        R.layout.widget_compact_summary,
+        WidgetVariant.COMPACT_SUMMARY
+    ).apply {
         setTextViewText(
             R.id.compact_summary_today,
             bytesOrNoData(context, data, data.today.totalBytes, data.hasTodayData)
@@ -133,7 +136,11 @@ internal object TrafficWidgetRenderer {
     private fun renderCompactProgress(
         context: Context,
         data: WidgetTrafficData
-    ): RemoteViews = baseViews(context, R.layout.widget_compact_progress).apply {
+    ): RemoteViews = baseViews(
+        context,
+        R.layout.widget_compact_progress,
+        WidgetVariant.COMPACT_PROGRESS
+    ).apply {
         setTextViewText(
             R.id.compact_progress_period,
             context.getString(
@@ -167,7 +174,11 @@ internal object TrafficWidgetRenderer {
     private fun renderCompactSpeed(
         context: Context,
         data: WidgetTrafficData
-    ): RemoteViews = baseViews(context, R.layout.widget_compact_speed).apply {
+    ): RemoteViews = baseViews(
+        context,
+        R.layout.widget_compact_speed,
+        WidgetVariant.COMPACT_SPEED
+    ).apply {
         val speed = data.speed
         setTextViewText(
             R.id.compact_speed_download,
@@ -199,7 +210,7 @@ internal object TrafficWidgetRenderer {
     private fun renderLargeWeek(
         context: Context,
         data: WidgetTrafficData
-    ): RemoteViews = baseViews(context, R.layout.widget_large_week).apply {
+    ): RemoteViews = baseViews(context, R.layout.widget_large_week, WidgetVariant.LARGE_WEEK).apply {
         setTextViewText(
             R.id.large_week_today_total,
             bytesOrNoData(context, data, data.today.totalBytes, data.hasTodayData)
@@ -244,7 +255,11 @@ internal object TrafficWidgetRenderer {
     private fun renderLargeHourly(
         context: Context,
         data: WidgetTrafficData
-    ): RemoteViews = baseViews(context, R.layout.widget_large_hourly).apply {
+    ): RemoteViews = baseViews(
+        context,
+        R.layout.widget_large_hourly,
+        WidgetVariant.LARGE_HOURLY
+    ).apply {
         setTextViewText(
             R.id.large_hourly_today_total,
             bytesOrNoData(context, data, data.today.totalBytes, data.hasTodayData)
@@ -297,7 +312,11 @@ internal object TrafficWidgetRenderer {
     private fun renderLargeMonth(
         context: Context,
         data: WidgetTrafficData
-    ): RemoteViews = baseViews(context, R.layout.widget_large_month).apply {
+    ): RemoteViews = baseViews(
+        context,
+        R.layout.widget_large_month,
+        WidgetVariant.LARGE_MONTH
+    ).apply {
         setTextViewText(
             R.id.large_month_period_label,
             data.monthYearLabel.uppercase(Locale.getDefault())
@@ -350,21 +369,48 @@ internal object TrafficWidgetRenderer {
         )
     }
 
-    private fun baseViews(context: Context, layoutId: Int): RemoteViews =
+    private fun baseViews(
+        context: Context,
+        layoutId: Int,
+        variant: WidgetVariant
+    ): RemoteViews =
         RemoteViews(context.packageName, layoutId).apply {
+            setBoolean(R.id.widget_refresh, "setEnabled", true)
+            setImageViewResource(R.id.widget_refresh, R.drawable.ic_widget_refresh)
+            setInt(
+                R.id.widget_refresh,
+                "setColorFilter",
+                context.getColor(R.color.widget_accent)
+            )
             setOnClickPendingIntent(
                 R.id.widget_root,
                 TrafficWidgetProvider.openAppPendingIntent(context)
             )
             setOnClickPendingIntent(
                 R.id.widget_refresh,
-                TrafficWidgetProvider.refreshPendingIntent(context)
+                TrafficWidgetProvider.refreshPendingIntent(
+                    context,
+                    providerClassFor(variant)
+                )
             )
             setContentDescription(
                 R.id.widget_refresh,
                 context.getString(R.string.widget_refresh)
             )
         }
+
+    private fun providerClassFor(
+        variant: WidgetVariant
+    ): Class<out android.appwidget.AppWidgetProvider> = when (variant) {
+        WidgetVariant.WIDE_CURRENT -> TrafficWidgetProvider::class.java
+        WidgetVariant.COMPACT_DAY -> CompactDayWidgetProvider::class.java
+        WidgetVariant.COMPACT_SUMMARY -> CompactSummaryWidgetProvider::class.java
+        WidgetVariant.COMPACT_PROGRESS -> CompactProgressWidgetProvider::class.java
+        WidgetVariant.COMPACT_SPEED -> CompactSpeedWidgetProvider::class.java
+        WidgetVariant.LARGE_WEEK -> LargeWeekWidgetProvider::class.java
+        WidgetVariant.LARGE_HOURLY -> LargeHourlyWidgetProvider::class.java
+        WidgetVariant.LARGE_MONTH -> LargeMonthWidgetProvider::class.java
+    }
 
     private fun bytesOrNoData(
         context: Context,
