@@ -12,13 +12,13 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:paddingEnd="26dp"
         android:orientation="vertical">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
+            android:paddingEnd="30dp"
             android:orientation="horizontal">
             <LinearLayout
                 android:layout_width="0dp"
@@ -34,12 +34,6 @@
                     android:text="2,74 ГБ"
                     android:textSize="20sp" />
             </LinearLayout>
-            <TextView
-                android:id="@+id/large_hourly_speed"
-                style="@style/WidgetMeta"
-                android:gravity="end"
-                android:text="↓ 3,2 МБ/с · ↑ 0,8 МБ/с"
-                android:textColor="@color/widget_accent" />
         </LinearLayout>
 
         <ImageView
@@ -54,11 +48,11 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
-            <TextView style="@style/WidgetMeta" android:layout_width="0dp" android:layout_weight="1" android:text="0:00" android:textSize="7sp" />
-            <TextView style="@style/WidgetMeta" android:layout_width="0dp" android:layout_weight="1" android:gravity="center" android:text="6:00" android:textSize="7sp" />
-            <TextView style="@style/WidgetMeta" android:layout_width="0dp" android:layout_weight="1" android:gravity="center" android:text="12:00" android:textSize="7sp" />
-            <TextView style="@style/WidgetMeta" android:layout_width="0dp" android:layout_weight="1" android:gravity="center" android:text="18:00" android:textSize="7sp" />
-            <TextView style="@style/WidgetMeta" android:layout_width="0dp" android:layout_weight="1" android:gravity="end" android:text="23:00" android:textSize="7sp" />
+            <TextView style="@style/WidgetMeta" android:layout_width="0dp" android:layout_weight="1" android:text="0:00" />
+            <TextView style="@style/WidgetMeta" android:layout_width="0dp" android:layout_weight="1" android:gravity="center" android:text="6:00" />
+            <TextView style="@style/WidgetMeta" android:layout_width="0dp" android:layout_weight="1" android:gravity="center" android:text="12:00" />
+            <TextView style="@style/WidgetMeta" android:layout_width="0dp" android:layout_weight="1" android:gravity="center" android:text="18:00" />
+            <TextView style="@style/WidgetMeta" android:layout_width="0dp" android:layout_weight="1" android:gravity="end" android:text="23:00" />
         </LinearLayout>
 
         <ProgressBar

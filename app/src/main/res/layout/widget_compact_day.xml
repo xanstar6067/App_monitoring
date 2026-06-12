@@ -12,7 +12,6 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:paddingEnd="24dp"
         android:gravity="center_vertical"
         android:orientation="vertical">
 
@@ -37,6 +36,8 @@
             android:id="@+id/compact_day_mobile_balance"
             style="@style/WidgetMeta"
             android:layout_marginTop="2dp"
+            android:ellipsize="none"
+            android:maxLines="2"
             android:text="Моб. месяц 8,4 ГБ · осталось 1,6 ГБ"
             android:textColor="@color/widget_accent" />
     </LinearLayout>

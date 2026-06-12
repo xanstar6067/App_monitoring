@@ -72,7 +72,7 @@ internal object TrafficWidgetRenderer {
         bindIconApps(
             context = context,
             views = this,
-            apps = data.todayApps.take(3),
+            apps = data.todayApps.take(4),
             usage = AppUsage.TODAY
         )
     }
@@ -95,11 +95,17 @@ internal object TrafficWidgetRenderer {
         )
         setTextViewText(
             R.id.compact_day_mobile_balance,
-            context.getString(
-                R.string.widget_month_mobile_balance,
-                data.formatBytes(data.month.mobileBytes),
-                data.formatRemaining()
-            )
+            listOf(
+                context.getString(
+                    R.string.widget_mobile_spent_value,
+                    data.periodLabel,
+                    data.formatBytes(data.month.mobileBytes)
+                ),
+                context.getString(
+                    R.string.widget_mobile_remaining_value,
+                    data.formatRemaining()
+                )
+            ).joinToString(separator = "\n")
         )
     }
 
@@ -263,16 +269,6 @@ internal object TrafficWidgetRenderer {
         setTextViewText(
             R.id.large_hourly_today_total,
             bytesOrNoData(context, data, data.today.totalBytes, data.hasTodayData)
-        )
-        setTextViewText(
-            R.id.large_hourly_speed,
-            data.speed?.let {
-                context.getString(
-                    R.string.widget_speed_inline,
-                    data.formatSpeed(it.downloadBytesPerSecond),
-                    data.formatSpeed(it.uploadBytesPerSecond)
-                )
-            } ?: context.getString(R.string.widget_speed_unavailable)
         )
         setImageViewBitmap(
             R.id.large_hourly_chart,
@@ -533,7 +529,8 @@ internal object TrafficWidgetRenderer {
     private val iconAppSlots = listOf(
         IconAppSlot(R.id.widget_app_1, R.id.widget_app_1_icon, R.id.widget_app_1_usage),
         IconAppSlot(R.id.widget_app_2, R.id.widget_app_2_icon, R.id.widget_app_2_usage),
-        IconAppSlot(R.id.widget_app_3, R.id.widget_app_3_icon, R.id.widget_app_3_usage)
+        IconAppSlot(R.id.widget_app_3, R.id.widget_app_3_icon, R.id.widget_app_3_usage),
+        IconAppSlot(R.id.widget_app_4, R.id.widget_app_4_icon, R.id.widget_app_4_usage)
     )
 
     private val largeAppSlots = listOf(
