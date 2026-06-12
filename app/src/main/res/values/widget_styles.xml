@@ -73,8 +73,9 @@
     </style>
 
     <style name="WidgetLargeAppName">
-        <item name="android:layout_width">104dp</item>
+        <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
         <item name="android:layout_marginStart">7dp</item>
         <item name="android:ellipsize">end</item>
         <item name="android:fontFamily">sans-serif-medium</item>
@@ -84,18 +85,8 @@
         <item name="android:textSize">12sp</item>
     </style>
 
-    <style name="WidgetLargeAppProgress">
-        <item name="android:layout_width">0dp</item>
-        <item name="android:layout_height">5dp</item>
-        <item name="android:layout_marginStart">7dp</item>
-        <item name="android:layout_weight">1</item>
-        <item name="android:indeterminate">false</item>
-        <item name="android:max">1000</item>
-        <item name="android:progressDrawable">@drawable/widget_progress</item>
-    </style>
-
-    <style name="WidgetLargeAppUsage">
-        <item name="android:layout_width">68dp</item>
+    <style name="WidgetLargeAppTransfer">
+        <item name="android:layout_width">72dp</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_marginStart">7dp</item>
         <item name="android:ellipsize">end</item>
@@ -105,5 +96,10 @@
         <item name="android:maxLines">1</item>
         <item name="android:textColor">@color/widget_text_secondary</item>
         <item name="android:textSize">11sp</item>
+    </style>
+
+    <style name="WidgetLargeAppTotal" parent="WidgetLargeAppTransfer">
+        <item name="android:layout_width">66dp</item>
+        <item name="android:textColor">@color/widget_text_primary</item>
     </style>
 </resources>

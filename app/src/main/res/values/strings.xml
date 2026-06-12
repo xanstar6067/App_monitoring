@@ -22,6 +22,7 @@
     <string name="widget_refresh">Обновить статистику</string>
     <string name="widget_refreshing">Статистика обновляется</string>
     <string name="widget_app_description">%1$s: %2$s</string>
+    <string name="widget_app_transfer_description">%1$s: всего %2$s, получено %3$s, отправлено %4$s</string>
     <string name="widget_mobile_period">МОБИЛЬНЫЙ · %1$s</string>
     <string name="widget_spent">потрачено</string>
     <string name="widget_mobile_spent">МОБИЛЬНЫЙ ПОТРАЧЕНО</string>

@@ -112,8 +112,9 @@
             android:orientation="horizontal">
             <ImageView android:id="@+id/widget_large_app_1_icon" style="@style/WidgetLargeAppIcon" />
             <TextView android:id="@+id/widget_large_app_1_name" style="@style/WidgetLargeAppName" android:text="Instagram" />
-            <ProgressBar android:id="@+id/widget_large_app_1_progress" style="@style/WidgetLargeAppProgress" android:progress="1000" />
-            <TextView android:id="@+id/widget_large_app_1_usage" style="@style/WidgetLargeAppUsage" android:text="4,92 ГБ" />
+            <TextView android:id="@+id/widget_large_app_1_total" style="@style/WidgetLargeAppTotal" android:text="4,92 ГБ" />
+            <TextView android:id="@+id/widget_large_app_1_received" style="@style/WidgetLargeAppTransfer" android:text="↓ 4,10 ГБ" android:textColor="@color/widget_accent" />
+            <TextView android:id="@+id/widget_large_app_1_sent" style="@style/WidgetLargeAppTransfer" android:text="↑ 820 МБ" android:textColor="@color/widget_blue" />
         </LinearLayout>
 
         <LinearLayout
@@ -124,8 +125,9 @@
             android:orientation="horizontal">
             <ImageView android:id="@+id/widget_large_app_2_icon" style="@style/WidgetLargeAppIcon" />
             <TextView android:id="@+id/widget_large_app_2_name" style="@style/WidgetLargeAppName" android:text="Spotify" />
-            <ProgressBar android:id="@+id/widget_large_app_2_progress" style="@style/WidgetLargeAppProgress" android:progress="650" />
-            <TextView android:id="@+id/widget_large_app_2_usage" style="@style/WidgetLargeAppUsage" android:text="3,22 ГБ" />
+            <TextView android:id="@+id/widget_large_app_2_total" style="@style/WidgetLargeAppTotal" android:text="3,22 ГБ" />
+            <TextView android:id="@+id/widget_large_app_2_received" style="@style/WidgetLargeAppTransfer" android:text="↓ 2,80 ГБ" android:textColor="@color/widget_accent" />
+            <TextView android:id="@+id/widget_large_app_2_sent" style="@style/WidgetLargeAppTransfer" android:text="↑ 420 МБ" android:textColor="@color/widget_blue" />
         </LinearLayout>
 
         <LinearLayout
@@ -136,8 +138,9 @@
             android:orientation="horizontal">
             <ImageView android:id="@+id/widget_large_app_3_icon" style="@style/WidgetLargeAppIcon" />
             <TextView android:id="@+id/widget_large_app_3_name" style="@style/WidgetLargeAppName" android:text="Telegram" />
-            <ProgressBar android:id="@+id/widget_large_app_3_progress" style="@style/WidgetLargeAppProgress" android:progress="440" />
-            <TextView android:id="@+id/widget_large_app_3_usage" style="@style/WidgetLargeAppUsage" android:text="2,15 ГБ" />
+            <TextView android:id="@+id/widget_large_app_3_total" style="@style/WidgetLargeAppTotal" android:text="2,15 ГБ" />
+            <TextView android:id="@+id/widget_large_app_3_received" style="@style/WidgetLargeAppTransfer" android:text="↓ 1,75 ГБ" android:textColor="@color/widget_accent" />
+            <TextView android:id="@+id/widget_large_app_3_sent" style="@style/WidgetLargeAppTransfer" android:text="↑ 400 МБ" android:textColor="@color/widget_blue" />
         </LinearLayout>
 
         <LinearLayout
@@ -148,8 +151,9 @@
             android:orientation="horizontal">
             <ImageView android:id="@+id/widget_large_app_4_icon" style="@style/WidgetLargeAppIcon" />
             <TextView android:id="@+id/widget_large_app_4_name" style="@style/WidgetLargeAppName" android:text="YouTube" />
-            <ProgressBar android:id="@+id/widget_large_app_4_progress" style="@style/WidgetLargeAppProgress" android:progress="340" />
-            <TextView android:id="@+id/widget_large_app_4_usage" style="@style/WidgetLargeAppUsage" android:text="1,68 ГБ" />
+            <TextView android:id="@+id/widget_large_app_4_total" style="@style/WidgetLargeAppTotal" android:text="1,68 ГБ" />
+            <TextView android:id="@+id/widget_large_app_4_received" style="@style/WidgetLargeAppTransfer" android:text="↓ 1,50 ГБ" android:textColor="@color/widget_accent" />
+            <TextView android:id="@+id/widget_large_app_4_sent" style="@style/WidgetLargeAppTransfer" android:text="↑ 180 МБ" android:textColor="@color/widget_blue" />
         </LinearLayout>
 
         <LinearLayout
@@ -161,8 +165,9 @@
             android:visibility="gone">
             <ImageView android:id="@+id/widget_large_app_5_icon" style="@style/WidgetLargeAppIcon" />
             <TextView android:id="@+id/widget_large_app_5_name" style="@style/WidgetLargeAppName" android:text="Chrome" />
-            <ProgressBar android:id="@+id/widget_large_app_5_progress" style="@style/WidgetLargeAppProgress" android:progress="260" />
-            <TextView android:id="@+id/widget_large_app_5_usage" style="@style/WidgetLargeAppUsage" android:text="1,24 ГБ" />
+            <TextView android:id="@+id/widget_large_app_5_total" style="@style/WidgetLargeAppTotal" android:text="1,24 ГБ" />
+            <TextView android:id="@+id/widget_large_app_5_received" style="@style/WidgetLargeAppTransfer" android:text="↓ 1,02 ГБ" android:textColor="@color/widget_accent" />
+            <TextView android:id="@+id/widget_large_app_5_sent" style="@style/WidgetLargeAppTransfer" android:text="↑ 220 МБ" android:textColor="@color/widget_blue" />
         </LinearLayout>
 
         <LinearLayout
@@ -174,8 +179,9 @@
             android:visibility="gone">
             <ImageView android:id="@+id/widget_large_app_6_icon" style="@style/WidgetLargeAppIcon" />
             <TextView android:id="@+id/widget_large_app_6_name" style="@style/WidgetLargeAppName" android:text="Монитор" />
-            <ProgressBar android:id="@+id/widget_large_app_6_progress" style="@style/WidgetLargeAppProgress" android:progress="190" />
-            <TextView android:id="@+id/widget_large_app_6_usage" style="@style/WidgetLargeAppUsage" android:text="920 МБ" />
+            <TextView android:id="@+id/widget_large_app_6_total" style="@style/WidgetLargeAppTotal" android:text="920 МБ" />
+            <TextView android:id="@+id/widget_large_app_6_received" style="@style/WidgetLargeAppTransfer" android:text="↓ 760 МБ" android:textColor="@color/widget_accent" />
+            <TextView android:id="@+id/widget_large_app_6_sent" style="@style/WidgetLargeAppTransfer" android:text="↑ 160 МБ" android:textColor="@color/widget_blue" />
         </LinearLayout>
     </LinearLayout>
 

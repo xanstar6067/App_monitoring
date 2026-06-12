@@ -453,32 +453,30 @@ internal object TrafficWidgetRenderer {
         usage: AppUsage,
         slots: List<LargeAppSlot>
     ) {
-        val maxBytes = apps.maxOfOrNull(usage::bytes)?.coerceAtLeast(1) ?: 1
         slots.forEachIndexed { index, slot ->
             val appTraffic = apps.getOrNull(index)
             if (appTraffic == null) {
                 views.setViewVisibility(slot.containerId, View.GONE)
                 return@forEachIndexed
             }
-            val bytes = usage.bytes(appTraffic)
+            val traffic = usage.traffic(appTraffic)
+            val total = ByteFormatterForWidget.format(context, traffic.totalBytes)
+            val received = ByteFormatterForWidget.format(context, traffic.rxBytes)
+            val sent = ByteFormatterForWidget.format(context, traffic.txBytes)
             views.setViewVisibility(slot.containerId, View.VISIBLE)
             bindIcon(context, views, slot.iconId, appTraffic)
             views.setTextViewText(slot.nameId, appTraffic.app.appName)
-            views.setTextViewText(slot.usageId, ByteFormatterForWidget.format(context, bytes))
-            views.setProgressBar(
-                slot.progressId,
-                WidgetTrafficData.PROGRESS_MAX,
-                ((bytes.toDouble() / maxBytes.toDouble()) * WidgetTrafficData.PROGRESS_MAX)
-                    .toInt()
-                    .coerceIn(0, WidgetTrafficData.PROGRESS_MAX),
-                false
-            )
+            views.setTextViewText(slot.totalId, total)
+            views.setTextViewText(slot.receivedId, "↓ $received")
+            views.setTextViewText(slot.sentId, "↑ $sent")
             views.setContentDescription(
                 slot.containerId,
                 context.getString(
-                    R.string.widget_app_description,
+                    R.string.widget_app_transfer_description,
                     appTraffic.app.appName,
-                    ByteFormatterForWidget.format(context, bytes)
+                    total,
+                    received,
+                    sent
                 )
             )
         }
@@ -506,10 +504,12 @@ internal object TrafficWidgetRenderer {
         TODAY,
         PERIOD;
 
-        fun bytes(app: AppTraffic): Long = when (this) {
-            TODAY -> app.todayUsage.totalBytes
-            PERIOD -> app.periodUsage.totalBytes
+        fun traffic(app: AppTraffic) = when (this) {
+            TODAY -> app.todayUsage
+            PERIOD -> app.periodUsage
         }
+
+        fun bytes(app: AppTraffic): Long = traffic(app).totalBytes
     }
 
     private data class IconAppSlot(
@@ -522,8 +522,9 @@ internal object TrafficWidgetRenderer {
         val containerId: Int,
         val iconId: Int,
         val nameId: Int,
-        val progressId: Int,
-        val usageId: Int
+        val totalId: Int,
+        val receivedId: Int,
+        val sentId: Int
     )
 
     private val iconAppSlots = listOf(
@@ -538,43 +539,49 @@ internal object TrafficWidgetRenderer {
             R.id.widget_large_app_1,
             R.id.widget_large_app_1_icon,
             R.id.widget_large_app_1_name,
-            R.id.widget_large_app_1_progress,
-            R.id.widget_large_app_1_usage
+            R.id.widget_large_app_1_total,
+            R.id.widget_large_app_1_received,
+            R.id.widget_large_app_1_sent
         ),
         LargeAppSlot(
             R.id.widget_large_app_2,
             R.id.widget_large_app_2_icon,
             R.id.widget_large_app_2_name,
-            R.id.widget_large_app_2_progress,
-            R.id.widget_large_app_2_usage
+            R.id.widget_large_app_2_total,
+            R.id.widget_large_app_2_received,
+            R.id.widget_large_app_2_sent
         ),
         LargeAppSlot(
             R.id.widget_large_app_3,
             R.id.widget_large_app_3_icon,
             R.id.widget_large_app_3_name,
-            R.id.widget_large_app_3_progress,
-            R.id.widget_large_app_3_usage
+            R.id.widget_large_app_3_total,
+            R.id.widget_large_app_3_received,
+            R.id.widget_large_app_3_sent
         ),
         LargeAppSlot(
             R.id.widget_large_app_4,
             R.id.widget_large_app_4_icon,
             R.id.widget_large_app_4_name,
-            R.id.widget_large_app_4_progress,
-            R.id.widget_large_app_4_usage
+            R.id.widget_large_app_4_total,
+            R.id.widget_large_app_4_received,
+            R.id.widget_large_app_4_sent
         ),
         LargeAppSlot(
             R.id.widget_large_app_5,
             R.id.widget_large_app_5_icon,
             R.id.widget_large_app_5_name,
-            R.id.widget_large_app_5_progress,
-            R.id.widget_large_app_5_usage
+            R.id.widget_large_app_5_total,
+            R.id.widget_large_app_5_received,
+            R.id.widget_large_app_5_sent
         ),
         LargeAppSlot(
             R.id.widget_large_app_6,
             R.id.widget_large_app_6_icon,
             R.id.widget_large_app_6_name,
-            R.id.widget_large_app_6_progress,
-            R.id.widget_large_app_6_usage
+            R.id.widget_large_app_6_total,
+            R.id.widget_large_app_6_received,
+            R.id.widget_large_app_6_sent
         )
     )
 }
