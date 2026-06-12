@@ -6,6 +6,24 @@ import java.time.Instant
 import java.time.ZoneId
 
 object ChartBuckets {
+    fun ensurePoint(
+        points: List<ChartPoint>,
+        timestamp: Long,
+        period: TrafficPeriod,
+        label: String,
+        zoneId: ZoneId = ZoneId.systemDefault()
+    ): List<ChartPoint> {
+        val bucketStart = normalize(timestamp, period, zoneId)
+        if (points.any { it.bucketStart == bucketStart }) return points
+
+        return (points + ChartPoint(
+            bucketStart = bucketStart,
+            label = label,
+            wifiBytes = 0,
+            mobileBytes = 0
+        )).sortedBy(ChartPoint::bucketStart)
+    }
+
     fun reconcileTotals(
         points: List<ChartPoint>,
         wifiTotalBytes: Long,

@@ -18,8 +18,63 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.time.ZonedDateTime
 
 class TrafficCoreTest {
+    @Test
+    fun currentChartBucketIsAddedWhenAndroidDetailsAreDelayed() {
+        val zone = ZoneId.of("Europe/Minsk")
+        val currentHour = ZonedDateTime.of(
+            2026, 6, 12, 8, 35, 0, 0, zone
+        ).toInstant().toEpochMilli()
+        val previousHour = ZonedDateTime.of(
+            2026, 6, 12, 7, 0, 0, 0, zone
+        ).toInstant().toEpochMilli()
+
+        val points = ChartBuckets.ensurePoint(
+            points = listOf(
+                ChartPoint(previousHour, "07", wifiBytes = 100, mobileBytes = 0)
+            ),
+            timestamp = currentHour,
+            period = TrafficPeriod.TODAY,
+            label = "08",
+            zoneId = zone
+        )
+        val result = ChartBuckets.reconcileTotals(
+            points = points,
+            wifiTotalBytes = 175,
+            mobileTotalBytes = 0
+        )
+
+        assertEquals(listOf("07", "08"), result.map { it.label })
+        assertEquals(75, result.last().wifiBytes)
+    }
+
+    @Test
+    fun currentChartBucketMakesFreshSummaryVisibleWithoutDetails() {
+        val zone = ZoneId.of("Europe/Minsk")
+        val now = ZonedDateTime.of(
+            2026, 6, 12, 8, 35, 0, 0, zone
+        ).toInstant().toEpochMilli()
+
+        val points = ChartBuckets.ensurePoint(
+            points = emptyList(),
+            timestamp = now,
+            period = TrafficPeriod.TODAY,
+            label = "08",
+            zoneId = zone
+        )
+        val result = ChartBuckets.reconcileTotals(
+            points = points,
+            wifiTotalBytes = 250,
+            mobileTotalBytes = 40
+        )
+
+        assertEquals(1, result.size)
+        assertEquals(250, result.single().wifiBytes)
+        assertEquals(40, result.single().mobileBytes)
+    }
+
     @Test
     fun todayRangeStartsAtLocalMidnight() {
         val zone = ZoneId.of("Europe/Minsk")

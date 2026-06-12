@@ -55,7 +55,16 @@ class NetworkStatsReader(context: Context) {
         }
         val chart = if (includeChart) {
             try {
-                val detailed = readChart(startMillis, endMillis, period)
+                val latestTimestamp = minOf(
+                    System.currentTimeMillis(),
+                    endMillis - 1
+                ).coerceAtLeast(startMillis)
+                val detailed = ChartBuckets.ensurePoint(
+                    points = readChart(startMillis, endMillis, period),
+                    timestamp = latestTimestamp,
+                    period = period,
+                    label = chartLabel(latestTimestamp, period)
+                )
                 val totalUsage = totals.values.fold(TrafficUsage()) { total, usage ->
                     total + usage
                 }

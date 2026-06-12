@@ -248,7 +248,13 @@ private fun BottomNavigation(
 
 @Composable
 private fun OverviewScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
-    val apps = filteredApps(state)
+    val apps = filteredApps(
+        state = state,
+        sortMode = when (state.period) {
+            TrafficPeriod.TODAY -> SortMode.TODAY
+            TrafficPeriod.MONTH -> SortMode.PERIOD
+        }
+    )
     val intervalTitle = selectedIntervalTitle(state)
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -2043,7 +2049,10 @@ private fun DiagnosticCard(
     }
 }
 
-private fun filteredApps(state: TrafficUiState): List<AppTraffic> {
+private fun filteredApps(
+    state: TrafficUiState,
+    sortMode: SortMode = state.sortMode
+): List<AppTraffic> {
     val mode = state.networkMode
     val apps = if (state.selectedChartPoint == null) {
         state.snapshot.apps
@@ -2057,7 +2066,7 @@ private fun filteredApps(state: TrafficUiState): List<AppTraffic> {
             state.settings.showAppsWithoutTraffic || it.periodUsage.bytesFor(mode) > 0
         }
         .sortedWith(
-            when (state.sortMode) {
+            when (sortMode) {
                 SortMode.TODAY -> compareByDescending { it.todayUsage.bytesFor(mode) }
                 SortMode.PERIOD -> compareByDescending { it.periodUsage.bytesFor(mode) }
                 SortMode.NAME -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.app.appName }
