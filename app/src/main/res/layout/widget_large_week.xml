@@ -86,7 +86,7 @@
         <LinearLayout
             android:id="@+id/widget_large_app_1"
             android:layout_width="match_parent"
-            android:layout_height="21dp"
+            android:layout_height="26dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
             <ImageView android:id="@+id/widget_large_app_1_icon" style="@style/WidgetLargeAppIcon" />
@@ -98,7 +98,7 @@
         <LinearLayout
             android:id="@+id/widget_large_app_2"
             android:layout_width="match_parent"
-            android:layout_height="21dp"
+            android:layout_height="26dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
             <ImageView android:id="@+id/widget_large_app_2_icon" style="@style/WidgetLargeAppIcon" />
@@ -110,13 +110,52 @@
         <LinearLayout
             android:id="@+id/widget_large_app_3"
             android:layout_width="match_parent"
-            android:layout_height="21dp"
+            android:layout_height="26dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
             <ImageView android:id="@+id/widget_large_app_3_icon" style="@style/WidgetLargeAppIcon" />
             <TextView android:id="@+id/widget_large_app_3_name" style="@style/WidgetLargeAppName" android:text="Монитор" />
             <ProgressBar android:id="@+id/widget_large_app_3_progress" style="@style/WidgetLargeAppProgress" android:progress="300" />
             <TextView android:id="@+id/widget_large_app_3_usage" style="@style/WidgetLargeAppUsage" android:text="253 МБ" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_large_app_4"
+            android:layout_width="match_parent"
+            android:layout_height="26dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+            <ImageView android:id="@+id/widget_large_app_4_icon" style="@style/WidgetLargeAppIcon" />
+            <TextView android:id="@+id/widget_large_app_4_name" style="@style/WidgetLargeAppName" android:text="Google Play" />
+            <ProgressBar android:id="@+id/widget_large_app_4_progress" style="@style/WidgetLargeAppProgress" android:progress="260" />
+            <TextView android:id="@+id/widget_large_app_4_usage" style="@style/WidgetLargeAppUsage" android:text="210 МБ" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_large_app_5"
+            android:layout_width="match_parent"
+            android:layout_height="26dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+            <ImageView android:id="@+id/widget_large_app_5_icon" style="@style/WidgetLargeAppIcon" />
+            <TextView android:id="@+id/widget_large_app_5_name" style="@style/WidgetLargeAppName" android:text="Chrome" />
+            <ProgressBar android:id="@+id/widget_large_app_5_progress" style="@style/WidgetLargeAppProgress" android:progress="190" />
+            <TextView android:id="@+id/widget_large_app_5_usage" style="@style/WidgetLargeAppUsage" android:text="164 МБ" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_large_app_6"
+            android:layout_width="match_parent"
+            android:layout_height="26dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+            <ImageView android:id="@+id/widget_large_app_6_icon" style="@style/WidgetLargeAppIcon" />
+            <TextView android:id="@+id/widget_large_app_6_name" style="@style/WidgetLargeAppName" android:text="Speedtest" />
+            <ProgressBar android:id="@+id/widget_large_app_6_progress" style="@style/WidgetLargeAppProgress" android:progress="140" />
+            <TextView android:id="@+id/widget_large_app_6_usage" style="@style/WidgetLargeAppUsage" android:text="118 МБ" />
         </LinearLayout>
     </LinearLayout>
 

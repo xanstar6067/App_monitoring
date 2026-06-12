@@ -95,7 +95,7 @@
         <LinearLayout
             android:id="@+id/widget_large_app_1"
             android:layout_width="match_parent"
-            android:layout_height="21dp"
+            android:layout_height="26dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
             <ImageView android:id="@+id/widget_large_app_1_icon" style="@style/WidgetLargeAppIcon" />
@@ -107,13 +107,65 @@
         <LinearLayout
             android:id="@+id/widget_large_app_2"
             android:layout_width="match_parent"
-            android:layout_height="21dp"
+            android:layout_height="26dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
             <ImageView android:id="@+id/widget_large_app_2_icon" style="@style/WidgetLargeAppIcon" />
             <TextView android:id="@+id/widget_large_app_2_name" style="@style/WidgetLargeAppName" android:text="Telegram" />
             <ProgressBar android:id="@+id/widget_large_app_2_progress" style="@style/WidgetLargeAppProgress" android:progress="520" />
             <TextView android:id="@+id/widget_large_app_2_usage" style="@style/WidgetLargeAppUsage" android:text="421 МБ" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_large_app_3"
+            android:layout_width="match_parent"
+            android:layout_height="26dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+            <ImageView android:id="@+id/widget_large_app_3_icon" style="@style/WidgetLargeAppIcon" />
+            <TextView android:id="@+id/widget_large_app_3_name" style="@style/WidgetLargeAppName" android:text="YouTube" />
+            <ProgressBar android:id="@+id/widget_large_app_3_progress" style="@style/WidgetLargeAppProgress" android:progress="420" />
+            <TextView android:id="@+id/widget_large_app_3_usage" style="@style/WidgetLargeAppUsage" android:text="318 МБ" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_large_app_4"
+            android:layout_width="match_parent"
+            android:layout_height="26dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+            <ImageView android:id="@+id/widget_large_app_4_icon" style="@style/WidgetLargeAppIcon" />
+            <TextView android:id="@+id/widget_large_app_4_name" style="@style/WidgetLargeAppName" android:text="Google Play" />
+            <ProgressBar android:id="@+id/widget_large_app_4_progress" style="@style/WidgetLargeAppProgress" android:progress="310" />
+            <TextView android:id="@+id/widget_large_app_4_usage" style="@style/WidgetLargeAppUsage" android:text="246 МБ" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_large_app_5"
+            android:layout_width="match_parent"
+            android:layout_height="26dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+            <ImageView android:id="@+id/widget_large_app_5_icon" style="@style/WidgetLargeAppIcon" />
+            <TextView android:id="@+id/widget_large_app_5_name" style="@style/WidgetLargeAppName" android:text="Chrome" />
+            <ProgressBar android:id="@+id/widget_large_app_5_progress" style="@style/WidgetLargeAppProgress" android:progress="240" />
+            <TextView android:id="@+id/widget_large_app_5_usage" style="@style/WidgetLargeAppUsage" android:text="182 МБ" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_large_app_6"
+            android:layout_width="match_parent"
+            android:layout_height="26dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+            <ImageView android:id="@+id/widget_large_app_6_icon" style="@style/WidgetLargeAppIcon" />
+            <TextView android:id="@+id/widget_large_app_6_name" style="@style/WidgetLargeAppName" android:text="Монитор" />
+            <ProgressBar android:id="@+id/widget_large_app_6_progress" style="@style/WidgetLargeAppProgress" android:progress="180" />
+            <TextView android:id="@+id/widget_large_app_6_usage" style="@style/WidgetLargeAppUsage" android:text="126 МБ" />
         </LinearLayout>
     </LinearLayout>
 

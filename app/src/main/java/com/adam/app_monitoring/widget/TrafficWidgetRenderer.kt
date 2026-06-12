@@ -252,9 +252,9 @@ internal object TrafficWidgetRenderer {
         bindLargeApps(
             context = context,
             views = this,
-            apps = data.todayApps.take(3),
+            apps = data.todayApps.take(4),
             usage = AppUsage.TODAY,
-            slots = largeAppSlots.take(3)
+            slots = largeAppSlots
         )
     }
 
@@ -299,9 +299,9 @@ internal object TrafficWidgetRenderer {
         bindLargeApps(
             context = context,
             views = this,
-            apps = data.todayApps.take(2),
+            apps = data.todayApps.take(4),
             usage = AppUsage.TODAY,
-            slots = largeAppSlots.take(2)
+            slots = largeAppSlots
         )
     }
 
@@ -359,7 +359,7 @@ internal object TrafficWidgetRenderer {
         bindLargeApps(
             context = context,
             views = this,
-            apps = data.monthApps.take(4),
+            apps = data.monthApps.take(5),
             usage = AppUsage.PERIOD,
             slots = largeAppSlots
         )
@@ -561,6 +561,20 @@ internal object TrafficWidgetRenderer {
             R.id.widget_large_app_4_name,
             R.id.widget_large_app_4_progress,
             R.id.widget_large_app_4_usage
+        ),
+        LargeAppSlot(
+            R.id.widget_large_app_5,
+            R.id.widget_large_app_5_icon,
+            R.id.widget_large_app_5_name,
+            R.id.widget_large_app_5_progress,
+            R.id.widget_large_app_5_usage
+        ),
+        LargeAppSlot(
+            R.id.widget_large_app_6,
+            R.id.widget_large_app_6_icon,
+            R.id.widget_large_app_6_name,
+            R.id.widget_large_app_6_progress,
+            R.id.widget_large_app_6_usage
         )
     )
 }
