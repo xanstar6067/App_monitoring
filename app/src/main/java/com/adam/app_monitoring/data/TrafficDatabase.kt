@@ -251,9 +251,16 @@ class TrafficDatabase(context: Context) : SQLiteOpenHelper(
         if (apps.isEmpty()) return null
 
         val chart = mutableListOf<ChartPoint>()
+        var chartCalculatedAt = 0L
         readableDatabase.query(
             "chart_cache",
-            arrayOf("bucket_start", "label", "wifi_bytes", "mobile_bytes"),
+            arrayOf(
+                "bucket_start",
+                "label",
+                "wifi_bytes",
+                "mobile_bytes",
+                "calculated_at"
+            ),
             "period_start = ?",
             arrayOf(periodStart.toString()),
             null,
@@ -267,7 +274,13 @@ class TrafficDatabase(context: Context) : SQLiteOpenHelper(
                     wifiBytes = cursor.getLong(2),
                     mobileBytes = cursor.getLong(3)
                 )
+                chartCalculatedAt = maxOf(chartCalculatedAt, cursor.getLong(4))
             }
+        }
+        val snapshotCalculatedAt = if (chartCalculatedAt > 0) {
+            minOf(calculatedAt, chartCalculatedAt)
+        } else {
+            0L
         }
         return TrafficSnapshot(
             period = period,
@@ -275,7 +288,7 @@ class TrafficDatabase(context: Context) : SQLiteOpenHelper(
             periodEnd = periodEnd,
             apps = apps,
             chart = chart,
-            calculatedAt = calculatedAt
+            calculatedAt = snapshotCalculatedAt
         )
     }
 

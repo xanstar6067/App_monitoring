@@ -168,10 +168,29 @@ class TrafficViewModel(
         _state.update { it.copy(selectedApp = app) }
     }
 
-    fun selectChartPoint(point: ChartPoint) {
+    fun previewChartPoint(point: ChartPoint) {
         val current = _state.value
         if (current.selectedChartPoint?.bucketStart == point.bucketStart) return
         intervalJob?.cancel()
+        intervalJob = null
+        _state.update {
+            it.copy(
+                selectedChartPoint = point,
+                intervalApps = null,
+                intervalLoading = true,
+                error = null
+            )
+        }
+    }
+
+    fun selectChartPoint(point: ChartPoint) {
+        val current = _state.value
+        val samePoint = current.selectedChartPoint?.bucketStart == point.bucketStart
+        if (samePoint && (current.intervalApps != null || intervalJob?.isActive == true)) {
+            return
+        }
+        intervalJob?.cancel()
+        intervalJob = null
         val endMillis = chartPointEnd(point, current.period)
             .coerceAtMost(System.currentTimeMillis())
         if (endMillis <= point.bucketStart) return

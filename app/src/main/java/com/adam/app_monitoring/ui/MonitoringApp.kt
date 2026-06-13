@@ -17,6 +17,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -277,11 +278,13 @@ private fun OverviewScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
         item {
             ChartCard(
                 points = state.snapshot.chart,
+                period = state.period,
                 mode = state.networkMode,
                 total = state.snapshot.totalUsage.bytesFor(state.networkMode),
                 trafficRemainingBytes = state.trafficRemainingBytes,
                 units = state.settings.units,
                 selectedPoint = state.selectedChartPoint,
+                onPointPreview = viewModel::previewChartPoint,
                 onPointSelected = viewModel::selectChartPoint,
                 onSelectionCleared = viewModel::clearChartSelection
             )
@@ -594,11 +597,13 @@ private fun SortSelector(
 @Composable
 private fun ChartCard(
     points: List<ChartPoint>,
+    period: TrafficPeriod,
     mode: NetworkMode,
     total: Long,
     trafficRemainingBytes: Long?,
     units: com.adam.app_monitoring.core.util.ByteUnitPreference,
     selectedPoint: ChartPoint?,
+    onPointPreview: (ChartPoint) -> Unit,
     onPointSelected: (ChartPoint) -> Unit,
     onSelectionCleared: () -> Unit
 ) {
@@ -630,9 +635,11 @@ private fun ChartCard(
             } else {
                 TrafficBarChart(
                     points = points,
+                    period = period,
                     mode = mode,
                     units = units,
                     selectedPoint = selectedPoint,
+                    onPointPreview = onPointPreview,
                     onPointSelected = onPointSelected
                 )
             }
@@ -656,9 +663,11 @@ private fun ChartCard(
 @Composable
 private fun TrafficBarChart(
     points: List<ChartPoint>,
+    period: TrafficPeriod,
     mode: NetworkMode,
     units: com.adam.app_monitoring.core.util.ByteUnitPreference,
     selectedPoint: ChartPoint?,
+    onPointPreview: (ChartPoint) -> Unit,
     onPointSelected: (ChartPoint) -> Unit
 ) {
     val wifiColor = Color(0xFFF57C00)
@@ -666,6 +675,8 @@ private fun TrafficBarChart(
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     val selectedBackground = MaterialTheme.colorScheme.surfaceVariant
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val futureColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+    val nowMillis = System.currentTimeMillis()
     val values = points.map { it.bytesFor(mode).coerceAtLeast(0) }
     val scaleMax = remember(values) { niceChartMaximum(values.maxOrNull() ?: 0L) }
     val gridSteps = 4
@@ -714,7 +725,7 @@ private fun TrafficBarChart(
             }
         } else {
             Text(
-                "Нажмите на столбец, чтобы увидеть точное значение",
+                "Нажмите или проведите по столбцам для точного значения",
                 style = MaterialTheme.typography.bodySmall,
                 color = labelColor
             )
@@ -735,7 +746,49 @@ private fun TrafficBarChart(
                             val tappedIndex = floor(offset.x / slotWidth)
                                 .toInt()
                                 .coerceIn(values.indices)
-                            onPointSelected(points[tappedIndex])
+                            val tappedPoint = points[tappedIndex]
+                            val isFuture = period == TrafficPeriod.TODAY &&
+                                tappedPoint.bucketStart > System.currentTimeMillis()
+                            if (!isFuture) onPointSelected(tappedPoint)
+                        }
+                    }
+                    .pointerInput(points, period, onPointPreview, onPointSelected) {
+                        var draggedPoint: ChartPoint? = null
+
+                        fun pointAt(x: Float): ChartPoint? {
+                            if (points.isEmpty()) return null
+                            val slotWidth = size.width / points.size
+                            val index = floor(x / slotWidth)
+                                .toInt()
+                                .coerceIn(points.indices)
+                            val point = points[index]
+                            val isFuture = period == TrafficPeriod.TODAY &&
+                                point.bucketStart > System.currentTimeMillis()
+                            return point.takeUnless { isFuture }
+                        }
+
+                        fun commitDrag() {
+                            draggedPoint?.let(onPointSelected)
+                            draggedPoint = null
+                        }
+
+                        detectHorizontalDragGestures(
+                            onDragStart = { offset ->
+                                pointAt(offset.x)?.let { point ->
+                                    draggedPoint = point
+                                    onPointPreview(point)
+                                }
+                            },
+                            onDragEnd = ::commitDrag,
+                            onDragCancel = ::commitDrag
+                        ) { change, _ ->
+                            pointAt(change.position.x)?.let { point ->
+                                if (draggedPoint?.bucketStart != point.bucketStart) {
+                                    draggedPoint = point
+                                    onPointPreview(point)
+                                }
+                            }
+                            change.consume()
                         }
                     }
             ) {
@@ -756,13 +809,20 @@ private fun TrafficBarChart(
 
                 values.forEachIndexed { index, value ->
                     val point = points[index]
+                    val isFuture = period == TrafficPeriod.TODAY &&
+                        point.bucketStart > nowMillis
                     val fraction = value.toFloat() / scaleMax.toFloat()
+                    val minimumHeight = when {
+                        isFuture -> 5.dp.toPx()
+                        value > 0 -> 3.dp.toPx()
+                        else -> 2.dp.toPx()
+                    }
                     val barHeight = (chartBottom * fraction.coerceIn(0f, 1f))
-                        .coerceAtLeast(if (value > 0) 3.dp.toPx() else 0f)
+                        .coerceAtLeast(minimumHeight)
                     val left = index * slotWidth + (slotWidth - barWidth) / 2f
                     val top = chartBottom - barHeight
 
-                    if (mode == NetworkMode.ALL && value > 0) {
+                    if (mode == NetworkMode.ALL && value > 0 && !isFuture) {
                         val wifiHeight = barHeight * point.wifiBytes.coerceAtLeast(0) / value
                         val mobileHeight = barHeight - wifiHeight
                         val barPath = Path().apply {
@@ -797,8 +857,16 @@ private fun TrafficBarChart(
                             )
                         }
                     } else {
+                        val barColor = when {
+                            isFuture -> futureColor
+                            value <= 0 -> (
+                                if (mode == NetworkMode.MOBILE) mobileColor else wifiColor
+                            ).copy(alpha = 0.28f)
+                            mode == NetworkMode.MOBILE -> mobileColor
+                            else -> wifiColor
+                        }
                         drawRoundRect(
-                            color = if (mode == NetworkMode.MOBILE) mobileColor else wifiColor,
+                            color = barColor,
                             topLeft = androidx.compose.ui.geometry.Offset(left, top),
                             size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
                             cornerRadius = androidx.compose.ui.geometry.CornerRadius(
@@ -869,6 +937,9 @@ private fun TrafficBarChart(
                 ChartLegendItem(wifiColor, "Wi-Fi")
                 ChartLegendItem(mobileColor, "Мобильный")
             }
+        }
+        if (period == TrafficPeriod.TODAY && selectedIndex !in points.indices) {
+            ChartLegendItem(futureColor, "Будущие часы")
         }
     }
 }

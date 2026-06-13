@@ -4,8 +4,42 @@ import com.adam.app_monitoring.core.model.TrafficPeriod
 import com.adam.app_monitoring.core.model.ChartPoint
 import java.time.Instant
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 object ChartBuckets {
+    fun completeDay(
+        points: List<ChartPoint>,
+        dayTimestamp: Long,
+        zoneId: ZoneId = ZoneId.systemDefault()
+    ): List<ChartPoint> {
+        val pointsByStart = points.associateBy(ChartPoint::bucketStart)
+        return dayBucketStarts(dayTimestamp, zoneId).map { bucketStart ->
+            pointsByStart[bucketStart] ?: ChartPoint(
+                bucketStart = bucketStart,
+                label = Instant.ofEpochMilli(bucketStart)
+                    .atZone(zoneId)
+                    .format(HOUR_FORMAT),
+                wifiBytes = 0,
+                mobileBytes = 0
+            )
+        }
+    }
+
+    fun dayBucketStarts(
+        dayTimestamp: Long,
+        zoneId: ZoneId = ZoneId.systemDefault()
+    ): List<Long> {
+        val date = Instant.ofEpochMilli(dayTimestamp).atZone(zoneId).toLocalDate()
+        val dayEnd = date.plusDays(1).atStartOfDay(zoneId)
+        var cursor = date.atStartOfDay(zoneId)
+        return buildList {
+            while (cursor.isBefore(dayEnd)) {
+                add(cursor.toInstant().toEpochMilli())
+                cursor = cursor.plusHours(1)
+            }
+        }
+    }
+
     fun ensurePoint(
         points: List<ChartPoint>,
         timestamp: Long,
@@ -152,4 +186,6 @@ object ChartBuckets {
             adjusted
         }
     }
+
+    private val HOUR_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("HH")
 }

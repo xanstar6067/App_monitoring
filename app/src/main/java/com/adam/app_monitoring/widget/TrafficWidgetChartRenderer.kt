@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import com.adam.app_monitoring.core.model.ChartPoint
+import java.time.LocalTime
 import kotlin.math.max
 
 internal object TrafficWidgetChartRenderer {
@@ -87,6 +88,7 @@ internal object TrafficWidgetChartRenderer {
         val canvas = Canvas(bitmap)
         val baselineY = 82f
         val maxValue = max(1L, values.maxOrNull() ?: 0L)
+        val currentHour = LocalTime.now().hour
         val gap = 5f
         val barWidth = (WIDTH - gap * 23) / 24f
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -97,8 +99,10 @@ internal object TrafficWidgetChartRenderer {
                     .coerceAtLeast(4f)
             }
             paint.color = when {
+                index > currentHour -> Color.argb(170, 72, 82, 101)
                 index == values.indexOf(maxValue) -> Color.argb(205, 91, 158, 245)
                 index == values.indexOfLast { it > 0L } -> blue
+                value <= 0 -> Color.argb(55, 91, 158, 245)
                 else -> Color.argb(82, 91, 158, 245)
             }
             val left = index * (barWidth + gap)

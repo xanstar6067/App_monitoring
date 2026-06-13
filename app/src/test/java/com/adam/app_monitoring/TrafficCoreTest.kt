@@ -16,11 +16,53 @@ import com.adam.app_monitoring.core.util.NetworkSpeedFormatter
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
 class TrafficCoreTest {
+    @Test
+    fun completeDayKeepsAllHoursAndFillsMissingOnesWithZero() {
+        val zone = ZoneId.of("Europe/Minsk")
+        val date = LocalDate.of(2026, 6, 13)
+        val dayStart = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val hour8 = date.atTime(8, 0).atZone(zone).toInstant().toEpochMilli()
+        val hour10 = date.atTime(10, 0).atZone(zone).toInstant().toEpochMilli()
+
+        val result = ChartBuckets.completeDay(
+            points = listOf(
+                ChartPoint(hour8, "08", wifiBytes = 10, mobileBytes = 0),
+                ChartPoint(hour10, "10", wifiBytes = 30, mobileBytes = 0)
+            ),
+            dayTimestamp = dayStart,
+            zoneId = zone
+        )
+
+        assertEquals(24, result.size)
+        assertEquals((0..23).map { "%02d".format(it) }, result.map { it.label })
+        assertEquals(0L, result.single { it.label == "09" }.wifiBytes)
+        assertEquals(30L, result.single { it.label == "10" }.wifiBytes)
+    }
+
+    @Test
+    fun dayBucketsFollowCivilTimeOnDstTransition() {
+        val zone = ZoneId.of("Europe/Berlin")
+        val dayStart = LocalDate.of(2026, 3, 29)
+            .atStartOfDay(zone)
+            .toInstant()
+            .toEpochMilli()
+
+        val starts = ChartBuckets.dayBucketStarts(dayStart, zone)
+        val labels = starts.map {
+            Instant.ofEpochMilli(it).atZone(zone).hour
+        }
+
+        assertEquals(23, starts.size)
+        assertTrue(2 !in labels)
+    }
+
     @Test
     fun currentChartBucketIsAddedWhenAndroidDetailsAreDelayed() {
         val zone = ZoneId.of("Europe/Minsk")
