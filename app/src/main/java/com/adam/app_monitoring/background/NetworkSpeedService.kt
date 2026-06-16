@@ -49,6 +49,7 @@ class NetworkSpeedService : Service() {
     private var totalsJob: Job? = null
     private var heartbeatJob: Job? = null
     private var lastWidgetUpdateAt = 0L
+    private val notificationShownAt = System.currentTimeMillis()
     @Volatile
     private var todayUsage = TrafficUsage()
 
@@ -181,7 +182,7 @@ class NetworkSpeedService : Service() {
             NetworkSpeedFormatter.iconText(statusBarSpeed).withFullUnit()
         )
 
-        return Notification.Builder(this, CHANNEL_ID)
+        val builder = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(smallIcon)
             .setLargeIcon(createLargeIcon(txPerSecond))
             .setContentTitle(title)
@@ -192,8 +193,14 @@ class NetworkSpeedService : Service() {
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setWhen(notificationShownAt)
             .setShowWhen(false)
-            .build()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
+        }
+
+        return builder.build()
     }
 
     private fun createLargeIcon(bytesPerSecond: Long): Bitmap {
@@ -234,10 +241,12 @@ class NetworkSpeedService : Service() {
         val channel = NotificationChannel(
             CHANNEL_ID,
             "Текущая скорость интернета",
-            NotificationManager.IMPORTANCE_LOW
+            NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
             description = "Постоянная скорость загрузки и передачи данных"
             setShowBadge(false)
+            setSound(null, null)
+            enableVibration(false)
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
         notificationManager.createNotificationChannel(channel)
@@ -269,7 +278,7 @@ class NetworkSpeedService : Service() {
     )
 
     companion object {
-        private const val CHANNEL_ID = "network_speed"
+        private const val CHANNEL_ID = "network_speed_status"
         private const val NOTIFICATION_ID = 1002
         private const val SAMPLE_INTERVAL_MS = 1_000L
         private const val TOTALS_REFRESH_INTERVAL_MS = 60_000L
