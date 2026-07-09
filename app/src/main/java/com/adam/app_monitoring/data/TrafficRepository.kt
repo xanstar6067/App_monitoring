@@ -49,7 +49,7 @@ class TrafficRepository(
         withTimeout(USER_REFRESH_TIMEOUT_MS) {
             refreshMutex.withLock {
                 requireUsageAccess()
-                val apps = appCatalog.load(forceScan = forceAppScan)
+                var apps = appCatalog.load(forceScan = forceAppScan)
                 val now = System.currentTimeMillis()
                 val todayRange = TimeRanges.forPeriod(TrafficPeriod.TODAY, now)
                 val todayStats = networkStatsReader.read(
@@ -58,6 +58,7 @@ class TrafficRepository(
                     period = TrafficPeriod.TODAY,
                     includeChart = includeCharts
                 )
+                apps = refreshCatalogIfMissingApps(apps, todayStats.byUid.keys)
                 val todayRows = buildRows(apps, todayStats.byUid, now)
                 database.saveDaily(TimeRanges.todayKey(now), todayRows, now)
                 database.savePeriod(
@@ -76,6 +77,7 @@ class TrafficRepository(
                         period = TrafficPeriod.MONTH,
                         includeChart = includeCharts
                     )
+                    apps = refreshCatalogIfMissingApps(apps, monthStats.byUid.keys)
                     val todayUsage = todayStats.byUid.values.fold(TrafficUsage()) {
                             total,
                             usage ->
@@ -116,7 +118,7 @@ class TrafficRepository(
                 withTimeout(BACKGROUND_REFRESH_TIMEOUT_MS) {
                     refreshMutex.withLock {
                         if (!permissionChecker.hasUsageAccess()) return@withLock false
-                        val apps = appCatalog.load()
+                        var apps = appCatalog.load()
                         val now = System.currentTimeMillis()
                         val todayKey = TimeRanges.todayKey(now)
                         val todayRange = TimeRanges.forPeriod(TrafficPeriod.TODAY, now)
@@ -126,6 +128,7 @@ class TrafficRepository(
                             period = TrafficPeriod.TODAY,
                             includeChart = false
                         )
+                        apps = refreshCatalogIfMissingApps(apps, todayStats.byUid.keys)
                         val todayRows = buildRows(apps, todayStats.byUid, now)
                         database.saveDaily(todayKey, todayRows, now)
                         database.savePeriod(
@@ -161,12 +164,15 @@ class TrafficRepository(
         withTimeout(INTERVAL_LOAD_TIMEOUT_MS) {
             refreshMutex.withLock {
                 requireUsageAccess()
-                val apps = appCatalog.load()
                 val stats = networkStatsReader.read(
                     startMillis = startMillis,
                     endMillis = endMillis,
                     period = TrafficPeriod.TODAY,
                     includeChart = false
+                )
+                val apps = refreshCatalogIfMissingApps(
+                    apps = appCatalog.load(),
+                    trafficUids = stats.byUid.keys
                 )
                 buildRows(apps, stats.byUid, System.currentTimeMillis()).map { row ->
                     AppTraffic(
@@ -206,9 +212,10 @@ class TrafficRepository(
             period = TrafficPeriod.TODAY,
             includeChart = false
         )
+        val dayApps = refreshCatalogIfMissingApps(apps, stats.byUid.keys)
         database.saveDaily(
             date = yesterday.toString(),
-            rows = buildRows(apps, stats.byUid, now),
+            rows = buildRows(dayApps, stats.byUid, now),
             calculatedAt = now
         )
     }
@@ -222,7 +229,7 @@ class TrafficRepository(
         byUid: Map<Int, TrafficUsage>,
         calculatedAt: Long
     ): List<TrafficRow> {
-        val appsByUid = apps.associateBy { it.uid }
+        val appsByUid = appsByUid(apps)
         val allUids = appsByUid.keys + byUid.keys
         return allUids.map { uid ->
             val app = specialUidRecord(uid, calculatedAt)
@@ -239,6 +246,30 @@ class TrafficRepository(
             TrafficRow(app, byUid[uid] ?: TrafficUsage())
         }
     }
+
+    private fun refreshCatalogIfMissingApps(
+        apps: List<AppRecord>,
+        trafficUids: Set<Int>
+    ): List<AppRecord> {
+        val appsByUid = appsByUid(apps)
+        val hasMissingApp = trafficUids.any { uid ->
+            specialUidRecord(uid, calculatedAt = 0) == null &&
+                appsByUid[uid]?.isResolvedApp() != true
+        }
+        return if (hasMissingApp) appCatalog.load(forceScan = true) else apps
+    }
+
+    private fun appsByUid(apps: List<AppRecord>): Map<Int, AppRecord> =
+        apps.groupBy { it.uid }.mapValues { (_, records) ->
+            records.sortedWith(
+                compareBy<AppRecord> { it.isRemoved }
+                    .thenBy { it.packageName.startsWith(UNKNOWN_UID_PREFIX) }
+                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.appName }
+            ).first()
+        }
+
+    private fun AppRecord.isResolvedApp(): Boolean =
+        !isRemoved && !packageName.startsWith(UNKNOWN_UID_PREFIX)
 
     private fun specialUidRecord(uid: Int, calculatedAt: Long): AppRecord? {
         val info = when (uid) {
@@ -281,6 +312,7 @@ class TrafficRepository(
     )
 
     private companion object {
+        const val UNKNOWN_UID_PREFIX = "unknown.uid."
         const val USER_REFRESH_TIMEOUT_MS = 2 * 60 * 1000L
         const val BACKGROUND_REFRESH_TIMEOUT_MS = 90 * 1000L
         const val INTERVAL_LOAD_TIMEOUT_MS = 60 * 1000L
