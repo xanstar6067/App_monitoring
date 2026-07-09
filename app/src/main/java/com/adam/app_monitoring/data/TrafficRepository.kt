@@ -1,6 +1,8 @@
 package com.adam.app_monitoring.data
 
+import android.app.usage.NetworkStats
 import android.content.Context
+import android.os.Process
 import com.adam.app_monitoring.core.model.AppTraffic
 import com.adam.app_monitoring.core.model.AppRecord
 import com.adam.app_monitoring.core.model.TrafficPeriod
@@ -223,7 +225,9 @@ class TrafficRepository(
         val appsByUid = apps.associateBy { it.uid }
         val allUids = appsByUid.keys + byUid.keys
         return allUids.map { uid ->
-            val app = appsByUid[uid] ?: AppRecord(
+            val app = specialUidRecord(uid, calculatedAt)
+                ?: appsByUid[uid]
+                ?: AppRecord(
                 packageName = "unknown.uid.$uid",
                 uid = uid,
                 appName = "Удалённое или неизвестное приложение",
@@ -235,6 +239,46 @@ class TrafficRepository(
             TrafficRow(app, byUid[uid] ?: TrafficUsage())
         }
     }
+
+    private fun specialUidRecord(uid: Int, calculatedAt: Long): AppRecord? {
+        val info = when (uid) {
+            NetworkStats.Bucket.UID_REMOVED -> SpecialUidInfo(
+                packageName = "android.uid.removed",
+                appName = "Удалённые приложения",
+                isSystemApp = false,
+                isRemoved = true
+            )
+            NetworkStats.Bucket.UID_TETHERING -> SpecialUidInfo(
+                packageName = "android.uid.tethering",
+                appName = "Раздача интернета",
+                isSystemApp = true,
+                isRemoved = false
+            )
+            Process.SYSTEM_UID -> SpecialUidInfo(
+                packageName = "android.uid.system",
+                appName = "Система Android",
+                isSystemApp = true,
+                isRemoved = false
+            )
+            else -> return null
+        }
+        return AppRecord(
+            packageName = info.packageName,
+            uid = uid,
+            appName = info.appName,
+            iconCachePath = null,
+            isSystemApp = info.isSystemApp,
+            isRemoved = info.isRemoved,
+            lastSeenAt = calculatedAt
+        )
+    }
+
+    private data class SpecialUidInfo(
+        val packageName: String,
+        val appName: String,
+        val isSystemApp: Boolean,
+        val isRemoved: Boolean
+    )
 
     private companion object {
         const val USER_REFRESH_TIMEOUT_MS = 2 * 60 * 1000L

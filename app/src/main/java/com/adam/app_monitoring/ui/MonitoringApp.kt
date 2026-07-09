@@ -257,6 +257,12 @@ private fun OverviewScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
         }
     )
     val intervalTitle = selectedIntervalTitle(state)
+    var showAllOverviewApps by remember(
+        state.period,
+        state.networkMode,
+        state.snapshot.calculatedAt,
+        state.selectedChartPoint
+    ) { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
@@ -312,7 +318,12 @@ private fun OverviewScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
                 }
             }
         }
-        val visibleApps = if (state.selectedChartPoint == null) apps.take(20) else apps
+        val limitOverviewApps = state.selectedChartPoint == null && !showAllOverviewApps
+        val visibleApps = if (limitOverviewApps) {
+            apps.take(OVERVIEW_APP_PREVIEW_LIMIT)
+        } else {
+            apps
+        }
         items(visibleApps, key = { it.app.packageName }) { app ->
             AppTrafficRow(
                 app = app,
@@ -322,6 +333,16 @@ private fun OverviewScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
                 onClick = { viewModel.selectApp(app) },
                 loadIcon = viewModel::loadIcon
             )
+        }
+        if (limitOverviewApps && apps.size > visibleApps.size) {
+            item {
+                OutlinedButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { showAllOverviewApps = true }
+                ) {
+                    Text("Показать все (${apps.size})")
+                }
+            }
         }
         if (!state.loading && !state.intervalLoading && apps.isEmpty()) {
             item { EmptyDataCard(state.permissions.usageAccessGranted) }
@@ -2232,3 +2253,4 @@ private val HOUR_MINUTE_FORMATTER: DateTimeFormatter =
     DateTimeFormatter.ofPattern("HH:mm")
 
 private const val EXIT_CONFIRMATION_WINDOW_MS = 2_000L
+private const val OVERVIEW_APP_PREVIEW_LIMIT = 20
