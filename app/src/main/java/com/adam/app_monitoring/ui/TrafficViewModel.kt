@@ -143,6 +143,11 @@ class TrafficViewModel(
             it.copy(
                 period = period,
                 snapshot = cached,
+                sortMode = if (period == TrafficPeriod.TODAY) {
+                    SortMode.TODAY
+                } else {
+                    SortMode.PERIOD
+                },
                 selectedApp = null,
                 selectedChartPoint = null,
                 intervalApps = null,
@@ -462,7 +467,8 @@ class TrafficViewModel(
         val zoned = Instant.ofEpochMilli(point.bucketStart).atZone(ZoneId.systemDefault())
         return when (period) {
             TrafficPeriod.TODAY -> zoned.plusHours(1)
-            TrafficPeriod.MONTH -> zoned.plusDays(1)
+            TrafficPeriod.MONTH,
+            TrafficPeriod.PREVIOUS_MONTH -> zoned.plusDays(1)
         }.toInstant().toEpochMilli()
     }
 

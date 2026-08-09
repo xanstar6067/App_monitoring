@@ -2,7 +2,8 @@ package com.adam.app_monitoring.core.model
 
 enum class TrafficPeriod {
     TODAY,
-    MONTH
+    MONTH,
+    PREVIOUS_MONTH
 }
 
 enum class NetworkMode {

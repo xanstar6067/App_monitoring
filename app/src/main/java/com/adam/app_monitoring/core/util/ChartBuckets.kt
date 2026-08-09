@@ -144,7 +144,8 @@ object ChartBuckets {
         val zoned = Instant.ofEpochMilli(timestamp).atZone(zoneId)
         val normalized = when (period) {
             TrafficPeriod.TODAY -> zoned.withMinute(0).withSecond(0).withNano(0)
-            TrafficPeriod.MONTH -> zoned.toLocalDate().atStartOfDay(zoneId)
+            TrafficPeriod.MONTH,
+            TrafficPeriod.PREVIOUS_MONTH -> zoned.toLocalDate().atStartOfDay(zoneId)
         }
         return normalized.toInstant().toEpochMilli()
     }
@@ -157,7 +158,8 @@ object ChartBuckets {
         val zoned = Instant.ofEpochMilli(normalizedStart).atZone(zoneId)
         return when (period) {
             TrafficPeriod.TODAY -> zoned.plusHours(1)
-            TrafficPeriod.MONTH -> zoned.plusDays(1)
+            TrafficPeriod.MONTH,
+            TrafficPeriod.PREVIOUS_MONTH -> zoned.plusDays(1)
         }.toInstant().toEpochMilli()
     }
 

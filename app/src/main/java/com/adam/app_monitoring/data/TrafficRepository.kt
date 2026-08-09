@@ -69,12 +69,12 @@ class TrafficRepository(
                     calculatedAt = now
                 )
 
-                if (period == TrafficPeriod.MONTH) {
-                    val monthRange = TimeRanges.forPeriod(TrafficPeriod.MONTH, now)
+                if (period != TrafficPeriod.TODAY) {
+                    val monthRange = TimeRanges.forPeriod(period, now)
                     val monthStats = networkStatsReader.read(
                         startMillis = monthRange.startMillis,
                         endMillis = monthRange.endMillis,
-                        period = TrafficPeriod.MONTH,
+                        period = period,
                         includeChart = includeCharts
                     )
                     apps = refreshCatalogIfMissingApps(apps, monthStats.byUid.keys)
@@ -92,7 +92,7 @@ class TrafficRepository(
                         periodStart = monthRange.startMillis,
                         periodEnd = monthRange.endMillis,
                         rows = buildRows(apps, monthStats.byUid, now),
-                        chart = if (includeCharts) {
+                        chart = if (includeCharts && period == TrafficPeriod.MONTH) {
                             ChartBuckets.reconcileLatestPoint(
                                 points = monthStats.chart,
                                 wifiTotalBytes = monthUsage.wifiBytes,
@@ -100,6 +100,8 @@ class TrafficRepository(
                                 latestWifiBytes = todayUsage.wifiBytes,
                                 latestMobileBytes = todayUsage.mobileBytes
                             )
+                        } else if (includeCharts) {
+                            monthStats.chart
                         } else {
                             null
                         },

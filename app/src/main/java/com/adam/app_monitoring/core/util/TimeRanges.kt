@@ -18,13 +18,22 @@ object TimeRanges {
         zoneId: ZoneId = ZoneId.systemDefault()
     ): TimeRange {
         val today = Instant.ofEpochMilli(nowMillis).atZone(zoneId).toLocalDate()
+        val currentMonthStart = today.withDayOfMonth(1)
         val startDate = when (period) {
             TrafficPeriod.TODAY -> today
-            TrafficPeriod.MONTH -> today.withDayOfMonth(1)
+            TrafficPeriod.MONTH -> currentMonthStart
+            TrafficPeriod.PREVIOUS_MONTH -> currentMonthStart.minusMonths(1)
+        }
+        val endMillis = when (period) {
+            TrafficPeriod.PREVIOUS_MONTH -> currentMonthStart
+                .atStartOfDay(zoneId)
+                .toInstant()
+                .toEpochMilli()
+            else -> nowMillis
         }
         return TimeRange(
             startMillis = startDate.atStartOfDay(zoneId).toInstant().toEpochMilli(),
-            endMillis = nowMillis
+            endMillis = endMillis
         )
     }
 

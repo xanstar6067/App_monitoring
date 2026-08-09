@@ -153,6 +153,28 @@ class TrafficCoreTest {
     }
 
     @Test
+    fun previousMonthRangeCoversCompleteCalendarMonth() {
+        val zone = ZoneId.of("Europe/Moscow")
+        val now = LocalDateTime.of(2026, 1, 10, 14, 35)
+            .atZone(zone)
+            .toInstant()
+            .toEpochMilli()
+
+        val range = TimeRanges.forPeriod(TrafficPeriod.PREVIOUS_MONTH, now, zone)
+
+        val expectedStart = LocalDateTime.of(2025, 12, 1, 0, 0)
+            .atZone(zone)
+            .toInstant()
+            .toEpochMilli()
+        val expectedEnd = LocalDateTime.of(2026, 1, 1, 0, 0)
+            .atZone(zone)
+            .toInstant()
+            .toEpochMilli()
+        assertEquals(expectedStart, range.startMillis)
+        assertEquals(expectedEnd, range.endMillis)
+    }
+
+    @Test
     fun chartBucketCrossingMidnightIsSplitBetweenDays() {
         val zone = ZoneId.of("Europe/Minsk")
         val bucketStart = LocalDateTime.of(2026, 6, 9, 23, 30)

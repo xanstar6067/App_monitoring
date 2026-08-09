@@ -199,7 +199,8 @@ fun MonitoringApp(
                 AppDetailScreen(
                     app = selected,
                     units = state.settings.units,
-                    intervalSelected = state.selectedChartPoint != null,
+                    showToday = state.period == TrafficPeriod.MONTH &&
+                        state.selectedChartPoint == null,
                     loadIcon = viewModel::loadIcon
                 )
             } else {
@@ -253,7 +254,8 @@ private fun OverviewScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
         state = state,
         sortMode = when (state.period) {
             TrafficPeriod.TODAY -> SortMode.TODAY
-            TrafficPeriod.MONTH -> SortMode.PERIOD
+            TrafficPeriod.MONTH,
+            TrafficPeriod.PREVIOUS_MONTH -> SortMode.PERIOD
         }
     )
     val intervalTitle = selectedIntervalTitle(state)
@@ -300,7 +302,7 @@ private fun OverviewScreen(state: TrafficUiState, viewModel: TrafficViewModel) {
                 usage = state.snapshot.totalUsage,
                 units = state.settings.units,
                 todayUsage = state.snapshot.todayTotalUsage
-                    .takeIf { state.period != TrafficPeriod.TODAY }
+                    .takeIf { state.period == TrafficPeriod.MONTH }
             )
         }
         item {
@@ -552,7 +554,12 @@ private fun PeriodSelector(
             FilterChip(
                 selected = selected == TrafficPeriod.MONTH,
                 onClick = { onSelected(TrafficPeriod.MONTH) },
-                label = { Text("Дни") }
+                label = { Text("Этот месяц") }
+            )
+            FilterChip(
+                selected = selected == TrafficPeriod.PREVIOUS_MONTH,
+                onClick = { onSelected(TrafficPeriod.PREVIOUS_MONTH) },
+                label = { Text("Прошлый") }
             )
         }
     }
@@ -1101,10 +1108,10 @@ private fun AppTrafficRow(
                     )
                 }
                 Text(
-                    "${intervalLabel ?: if (period == TrafficPeriod.TODAY) "Сегодня" else "С 1 числа"}: " +
+                    "${intervalLabel ?: period.appPeriodLabel()}: " +
                         ByteFormatter.format(app.periodUsage.totalBytes, settings.units)
                 )
-                if (intervalLabel == null && period != TrafficPeriod.TODAY) {
+                if (intervalLabel == null && period == TrafficPeriod.MONTH) {
                     Text(
                         "Сегодня: ${ByteFormatter.format(app.todayUsage.totalBytes, settings.units)}",
                         style = MaterialTheme.typography.bodySmall
@@ -1125,7 +1132,7 @@ private fun AppTrafficRow(
 private fun AppDetailScreen(
     app: AppTraffic,
     units: com.adam.app_monitoring.core.util.ByteUnitPreference,
-    intervalSelected: Boolean,
+    showToday: Boolean,
     loadIcon: suspend (AppTraffic) -> Bitmap?
 ) {
     val bitmap by produceState<Bitmap?>(null, app.app.packageName) {
@@ -1159,7 +1166,7 @@ private fun AppDetailScreen(
             }
         }
         item { SummaryCard(app.periodUsage, units) }
-        if (!intervalSelected) {
+        if (showToday) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(
@@ -2178,8 +2185,15 @@ private fun selectedIntervalTitle(state: TrafficUiState): String? {
             "${time.format(DAY_MONTH_FORMATTER)}, " +
                 "${time.format(HOUR_MINUTE_FORMATTER)}–${end.format(HOUR_MINUTE_FORMATTER)}"
         }
-        TrafficPeriod.MONTH -> time.format(DAY_MONTH_FORMATTER)
+        TrafficPeriod.MONTH,
+        TrafficPeriod.PREVIOUS_MONTH -> time.format(DAY_MONTH_FORMATTER)
     }
+}
+
+private fun TrafficPeriod.appPeriodLabel(): String = when (this) {
+    TrafficPeriod.TODAY -> "Сегодня"
+    TrafficPeriod.MONTH -> "С 1 числа"
+    TrafficPeriod.PREVIOUS_MONTH -> "Прошлый месяц"
 }
 
 private fun ActiveConnection.label(): String = when (this) {

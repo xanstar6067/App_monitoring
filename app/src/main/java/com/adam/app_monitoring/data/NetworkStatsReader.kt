@@ -65,7 +65,8 @@ class NetworkStatsReader(context: Context) {
                         hasWifiTraffic = totalUsage.wifiBytes > 0,
                         hasMobileTraffic = totalUsage.mobileBytes > 0
                     )
-                    TrafficPeriod.MONTH -> {
+                    TrafficPeriod.MONTH,
+                    TrafficPeriod.PREVIOUS_MONTH -> {
                         val latestTimestamp = minOf(
                             System.currentTimeMillis(),
                             endMillis - 1
@@ -303,7 +304,8 @@ class NetworkStatsReader(context: Context) {
         val zoned = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault())
         return when (period) {
             TrafficPeriod.TODAY -> zoned.format(HOUR_FORMAT)
-            TrafficPeriod.MONTH -> zoned.dayOfMonth.toString()
+            TrafficPeriod.MONTH,
+            TrafficPeriod.PREVIOUS_MONTH -> zoned.dayOfMonth.toString()
         }
     }
 
