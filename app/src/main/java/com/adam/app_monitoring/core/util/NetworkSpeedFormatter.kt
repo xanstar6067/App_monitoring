@@ -18,7 +18,7 @@ object NetworkSpeedFormatter {
             safeValue >= GIB -> safeValue / GIB to "ГБ/с"
             safeValue >= MIB -> safeValue / MIB to "МБ/с"
             safeValue >= KIB -> safeValue / KIB to "КБ/с"
-            else -> safeValue to "Байт/с"
+            else -> safeValue to "Б/с"
         }
         val decimals = when {
             safeValue < KIB -> 0
@@ -32,10 +32,10 @@ object NetworkSpeedFormatter {
     fun iconText(bytesPerSecond: Long): SpeedIconText {
         val safeValue = bytesPerSecond.coerceAtLeast(0).toDouble()
         val (value, unit) = when {
-            safeValue >= GIB -> safeValue / GIB to "G/s"
-            safeValue >= MIB -> safeValue / MIB to "M/s"
-            safeValue >= KIB -> safeValue / KIB to "K/s"
-            else -> safeValue to "B/s"
+            safeValue >= GIB -> safeValue / GIB to "ГБ/с"
+            safeValue >= MIB -> safeValue / MIB to "МБ/с"
+            safeValue >= KIB -> safeValue / KIB to "КБ/с"
+            else -> safeValue to "Б/с"
         }
         val text = when {
             value >= 100 -> value.toLong().coerceAtMost(999).toString()

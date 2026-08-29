@@ -51,10 +51,7 @@ internal class StatusBarSpeedIconRenderer(context: Context) {
         valuePaint.textScaleX = if (text.value.length == 3) 0.75f else 0.9f
         canvas.drawText(text.value, centerX, valueBaseline, valuePaint)
 
-        unitPaint.textScaleX = when (text.unit) {
-            "B/s", "KB/s" -> 1.05f
-            else -> 1f
-        }
+        unitPaint.textScaleX = if (text.unit.length <= 3) 1.05f else 0.9f
         canvas.drawText(text.unit, centerX, unitBaseline, unitPaint)
 
         return Icon.createWithBitmap(bitmap)

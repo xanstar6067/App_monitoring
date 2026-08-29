@@ -16,12 +16,13 @@ import android.net.TrafficStats
 import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
+import android.widget.RemoteViews
 import com.adam.app_monitoring.MainActivity
+import com.adam.app_monitoring.R
 import com.adam.app_monitoring.core.model.TrafficPeriod
 import com.adam.app_monitoring.core.model.TrafficUsage
 import com.adam.app_monitoring.core.util.ByteFormatter
 import com.adam.app_monitoring.core.util.NetworkSpeedFormatter
-import com.adam.app_monitoring.core.util.SpeedIconText
 import com.adam.app_monitoring.core.util.TimeRanges
 import com.adam.app_monitoring.data.ServiceLocator
 import com.adam.app_monitoring.data.NetworkSpeedSnapshotStore
@@ -44,6 +45,14 @@ class NetworkSpeedService : Service() {
     }
     private val statusBarIconRenderer by lazy {
         StatusBarSpeedIconRenderer(applicationContext)
+    }
+    private val notificationLayout by lazy {
+        NetworkSpeedNotificationDesign.chooseLayout(
+            manufacturer = Build.MANUFACTURER,
+            brand = Build.BRAND,
+            model = Build.MODEL,
+            sdkInt = Build.VERSION.SDK_INT
+        )
     }
     private var samplerJob: Job? = null
     private var totalsJob: Job? = null
@@ -173,21 +182,36 @@ class NetworkSpeedService : Service() {
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val title = "Загр.: ${NetworkSpeedFormatter.format(rxPerSecond)}   " +
-            "Пер.: ${NetworkSpeedFormatter.format(txPerSecond)}"
-        val totals = "Моб.: ${ByteFormatter.format(usage.mobileBytes)}   " +
-            "Wi-Fi: ${ByteFormatter.format(usage.wifiBytes)}"
+        val downloadSpeed = NetworkSpeedFormatter.format(rxPerSecond)
+        val uploadSpeed = NetworkSpeedFormatter.format(txPerSecond)
+        val legacyTitle = getString(
+            R.string.network_speed_notification_legacy_title,
+            downloadSpeed,
+            uploadSpeed
+        )
+        val compactTitle = getString(
+            R.string.network_speed_notification_compact_title,
+            downloadSpeed,
+            uploadSpeed
+        )
+        val totals = getString(
+            R.string.network_speed_notification_totals,
+            ByteFormatter.format(usage.mobileBytes),
+            ByteFormatter.format(usage.wifiBytes)
+        )
         val statusBarSpeed = maxOf(rxPerSecond, txPerSecond)
         val smallIcon = statusBarIconRenderer.create(
-            NetworkSpeedFormatter.iconText(statusBarSpeed).withFullUnit()
+            NetworkSpeedFormatter.iconText(statusBarSpeed)
         )
+        val title = when (notificationLayout) {
+            NetworkSpeedNotificationLayout.LEGACY_ONE_UI_6 -> legacyTitle
+            NetworkSpeedNotificationLayout.COMPACT_DUAL_BADGE -> compactTitle
+        }
 
         val builder = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(smallIcon)
-            .setLargeIcon(createLargeIcon(txPerSecond))
             .setContentTitle(title)
             .setContentText(totals)
-            .setStyle(Notification.BigTextStyle().bigText(totals))
             .setContentIntent(contentIntent)
             .setCategory(Notification.CATEGORY_SERVICE)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
@@ -196,6 +220,26 @@ class NetworkSpeedService : Service() {
             .setWhen(notificationShownAt)
             .setShowWhen(false)
 
+        when (notificationLayout) {
+            NetworkSpeedNotificationLayout.LEGACY_ONE_UI_6 -> builder
+                .setLargeIcon(createLargeIcon(txPerSecond))
+                .setStyle(Notification.BigTextStyle().bigText(totals))
+
+            NetworkSpeedNotificationLayout.COMPACT_DUAL_BADGE -> {
+                val views = createCompactNotificationViews(
+                    title = compactTitle,
+                    totals = totals,
+                    downloadBytesPerSecond = rxPerSecond,
+                    uploadBytesPerSecond = txPerSecond
+                )
+                builder
+                    .setStyle(Notification.DecoratedCustomViewStyle())
+                    .setCustomContentView(views)
+                    .setCustomBigContentView(views)
+                    .setCustomHeadsUpContentView(views)
+            }
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
         }
@@ -203,26 +247,86 @@ class NetworkSpeedService : Service() {
         return builder.build()
     }
 
+    private fun createCompactNotificationViews(
+        title: String,
+        totals: String,
+        downloadBytesPerSecond: Long,
+        uploadBytesPerSecond: Long
+    ): RemoteViews = RemoteViews(packageName, R.layout.notification_network_speed_compact).apply {
+        setTextViewText(R.id.network_speed_notification_title, title)
+        setTextViewText(R.id.network_speed_notification_totals, totals)
+        setImageViewBitmap(
+            R.id.network_speed_notification_badges,
+            createDualSpeedIcon(downloadBytesPerSecond, uploadBytesPerSecond)
+        )
+        setContentDescription(
+            R.id.network_speed_notification_badges,
+            getString(
+                R.string.network_speed_notification_badges_values_description,
+                NetworkSpeedFormatter.format(downloadBytesPerSecond),
+                NetworkSpeedFormatter.format(uploadBytesPerSecond)
+            )
+        )
+    }
+
     private fun createLargeIcon(bytesPerSecond: Long): Bitmap {
         val size = 144
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.TRANSPARENT)
-        val background = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(45, 124, 210)
-        }
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f, background)
+        drawSpeedBadge(
+            canvas = canvas,
+            centerX = size / 2f,
+            bytesPerSecond = bytesPerSecond,
+            color = UPLOAD_BADGE_COLOR
+        )
+        return bitmap
+    }
+
+    private fun createDualSpeedIcon(
+        downloadBytesPerSecond: Long,
+        uploadBytesPerSecond: Long
+    ): Bitmap {
+        val bitmap = Bitmap.createBitmap(
+            BADGE_SIZE * 2 + BADGE_GAP,
+            BADGE_SIZE,
+            Bitmap.Config.ARGB_8888
+        )
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.TRANSPARENT)
+        drawSpeedBadge(
+            canvas = canvas,
+            centerX = BADGE_SIZE / 2f,
+            bytesPerSecond = downloadBytesPerSecond,
+            color = DOWNLOAD_BADGE_COLOR
+        )
+        drawSpeedBadge(
+            canvas = canvas,
+            centerX = BADGE_SIZE + BADGE_GAP + BADGE_SIZE / 2f,
+            bytesPerSecond = uploadBytesPerSecond,
+            color = UPLOAD_BADGE_COLOR
+        )
+        return bitmap
+    }
+
+    private fun drawSpeedBadge(
+        canvas: Canvas,
+        centerX: Float,
+        bytesPerSecond: Long,
+        color: Int
+    ) {
+        val background = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
+        canvas.drawCircle(centerX, BADGE_SIZE / 2f, BADGE_SIZE / 2f, background)
         val icon = NetworkSpeedFormatter.iconText(bytesPerSecond)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
+            this.color = Color.WHITE
             textAlign = Paint.Align.CENTER
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             textSize = if (icon.value.length >= 3) 48f else 56f
         }
-        canvas.drawText(icon.value, size / 2f, 76f, paint)
-        paint.textSize = 30f
-        canvas.drawText(icon.unit, size / 2f, 112f, paint)
-        return bitmap
+        canvas.drawText(icon.value, centerX, 76f, paint)
+        paint.textSize = if (icon.unit.length >= 4) 26f else 30f
+        canvas.drawText(icon.unit, centerX, 112f, paint)
     }
 
     private fun startInForeground(notification: Notification) {
@@ -268,15 +372,6 @@ class NetworkSpeedService : Service() {
         }
     }
 
-    private fun SpeedIconText.withFullUnit() = copy(
-        unit = when (unit) {
-            "K/s" -> "KB/s"
-            "M/s" -> "MB/s"
-            "G/s" -> "GB/s"
-            else -> unit
-        }
-    )
-
     companion object {
         private const val CHANNEL_ID = "network_speed_status"
         private const val NOTIFICATION_ID = 1002
@@ -284,6 +379,10 @@ class NetworkSpeedService : Service() {
         private const val TOTALS_REFRESH_INTERVAL_MS = 60_000L
         private const val HEARTBEAT_INTERVAL_MS = 30_000L
         private const val WIDGET_SPEED_UPDATE_INTERVAL_MS = 5_000L
+        private const val BADGE_SIZE = 144
+        private const val BADGE_GAP = 12
+        private val DOWNLOAD_BADGE_COLOR = Color.rgb(236, 103, 166)
+        private val UPLOAD_BADGE_COLOR = Color.rgb(45, 124, 210)
         const val EXTRA_START_SOURCE = "start_source"
 
     }

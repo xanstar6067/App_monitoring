@@ -43,6 +43,11 @@
     <string name="widget_speed_unavailable">Скорость недоступна</string>
     <string name="widget_speed_inline">↓ %1$s · ↑ %2$s</string>
     <string name="widget_speed_traffic_summary">Сегодня %1$s · моб. %2$s · ост. %3$s</string>
+    <string name="network_speed_notification_legacy_title">Загр.: %1$s   Пер.: %2$s</string>
+    <string name="network_speed_notification_compact_title">↓ %1$s   ↑ %2$s</string>
+    <string name="network_speed_notification_totals">Моб. %1$s · Wi‑Fi %2$s</string>
+    <string name="network_speed_notification_badges_description">Скорость загрузки и передачи</string>
+    <string name="network_speed_notification_badges_values_description">Загрузка %1$s, передача %2$s</string>
     <string name="widget_today_plus">+%1$s сегодня</string>
     <string name="widget_plan_used">Тариф использован на %1$d%%</string>
     <string name="widget_week_chart">График трафика за последние семь дней</string>

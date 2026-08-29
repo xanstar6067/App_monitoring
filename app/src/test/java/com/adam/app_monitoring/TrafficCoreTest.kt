@@ -411,10 +411,12 @@ class TrafficCoreTest {
     @Test
     fun networkSpeedFormatterChoosesReadableUnits() {
         assertTrue(NetworkSpeedFormatter.format(0).startsWith("0"))
-        assertTrue(NetworkSpeedFormatter.format(0).endsWith("Байт/с"))
+        assertTrue(NetworkSpeedFormatter.format(0).endsWith("Б/с"))
         assertTrue(NetworkSpeedFormatter.format(1536).endsWith("КБ/с"))
         assertEquals("1.5", NetworkSpeedFormatter.iconText(1536).value)
-        assertEquals("K/s", NetworkSpeedFormatter.iconText(1536).unit)
+        assertEquals("КБ/с", NetworkSpeedFormatter.iconText(1536).unit)
+        assertEquals("МБ/с", NetworkSpeedFormatter.iconText(2L * 1024 * 1024).unit)
+        assertEquals("ГБ/с", NetworkSpeedFormatter.iconText(2L * 1024 * 1024 * 1024).unit)
         assertEquals("9.9", NetworkSpeedFormatter.iconText(10_137).value)
         assertEquals("10", NetworkSpeedFormatter.iconText(10_199).value)
         assertEquals("10", NetworkSpeedFormatter.iconText(10_240).value)
